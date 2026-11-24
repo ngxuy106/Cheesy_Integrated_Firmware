@@ -1,0 +1,12 @@
+build/
+Tests/bin/
+*.su
+*.map
+*.exe
+*.elf
+*.bin
+*.hex
+*.o
+*.obj
+.DS_Store
+Thumbs.db
