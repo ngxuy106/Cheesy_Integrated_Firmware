@@ -20,34 +20,489 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
-$RobotCfgPath    = Join-Path $RootDir "Core\Inc\robot_config.h"
-$PurePursuitPath = Join-Path $RootDir "Core\Inc\pure_pursuit.h"
-$NapBatPath      = Join-Path $RootDir "NAP_CODE.bat"
-$TunerIcoPath    = Join-Path $RootDir "icons\chinh_thong_so.ico"
-$NapIcoPath      = Join-Path $RootDir "icons\nap_code.ico"
-$LogsDir         = Join-Path $RootDir "logs"
+$script:RootDir         = $RootDir
+$script:RobotCfgPath    = Join-Path $RootDir "Core\Inc\robot_config.h"
+$script:PurePursuitPath = Join-Path $RootDir "Core\Inc\pure_pursuit.h"
+$script:ArenaMapPath    = Join-Path $RootDir "Core\Src\arena_map.c"
+$script:NapBatPath      = Join-Path $RootDir "NAP_CODE.bat"
+$script:TunerIcoPath    = Join-Path $RootDir "icons\chinh_thong_so.ico"
+$script:NapIcoPath      = Join-Path $RootDir "icons\nap_code.ico"
+$script:LogsDir         = Join-Path $RootDir "logs"
 
-$ParamSpecs = @(
-    @{ Id=1;  Tab=0; Key="V1";     Label="Vận tốc Ô 1 - Khe hẹp xuất phát";       Unit="cm/s";   Min=10.0;  Max=30.0;    Inc=0.5;  Dec=1; Type="f1"; File="robot_config"; Macro="V_TARGET_O1_CMS" }
-    @{ Id=2;  Tab=0; Key="V2";     Label="Vận tốc Ô 2 - Bo cua trái";             Unit="cm/s";   Min=10.0;  Max=30.0;    Inc=0.5;  Dec=1; Type="f1"; File="robot_config"; Macro="V_TARGET_O2_CMS" }
-    @{ Id=3;  Tab=0; Key="V3";     Label="Vận tốc Ô 3 - Đoạn thẳng + bật ToF";    Unit="cm/s";   Min=10.0;  Max=30.0;    Inc=0.5;  Dec=1; Type="f1"; File="robot_config"; Macro="V_TARGET_O3_CMS" }
-    @{ Id=4;  Tab=0; Key="V4";     Label="Vận tốc Ô 4 - Bo cua phải + quét ToF";  Unit="cm/s";   Min=10.0;  Max=30.0;    Inc=0.5;  Dec=1; Type="f1"; File="robot_config"; Macro="V_TARGET_O4_CMS" }
-    @{ Id=5;  Tab=0; Key="V5";     Label="Vận tốc Ô 5 - Xuôi về đích";            Unit="cm/s";   Min=10.0;  Max=30.0;    Inc=0.5;  Dec=1; Type="f1"; File="robot_config"; Macro="V_TARGET_O5_CMS" }
-    @{ Id=6;  Tab=0; Key="VDET";   Label="Trần tốc độ khi né vật cản động";       Unit="cm/s";   Min=10.0;  Max=30.0;    Inc=0.5;  Dec=1; Type="f1"; File="robot_config"; Macro="V_TARGET_DETOUR_MAX_CMS" }
-    @{ Id=7;  Tab=0; Key="VMAX";   Label="Giới hạn tốc độ tối đa toàn xe";        Unit="cm/s";   Min=15.0;  Max=35.0;    Inc=0.5;  Dec=1; Type="f1"; File="robot_config"; Macro="ROBOT_MAX_SPEED_CMS" }
-    @{ Id=8;  Tab=0; Key="ACC";    Label="Gia tốc tối đa chống trượt bánh";       Unit="cm/s²";  Min=20.0;  Max=150.0;   Inc=5.0;  Dec=1; Type="f1"; File="robot_config"; Macro="ROBOT_ACCEL_MAX_CMS2" }
-    @{ Id=9;  Tab=1; Key="KP";     Label="Motor PI - Kp (trái & phải)";           Unit="-";      Min=10.0;  Max=600.0;   Inc=5.0;  Dec=1; Type="f1"; File="robot_config"; Macro="MOTOR_DEFAULT_KP" }
-    @{ Id=10; Tab=1; Key="KI";     Label="Motor PI - Ki (tăng 1.5..4 nếu hụt)";   Unit="-";      Min=0.0;   Max=50.0;    Inc=0.1;  Dec=2; Type="f2"; File="robot_config"; Macro="MOTOR_DEFAULT_KI" }
-    @{ Id=11; Tab=1; Key="WD";     Label="Đường kính bánh xe";                    Unit="cm";     Min=2.5;   Max=8.0;     Inc=0.05; Dec=2; Type="f2"; File="robot_config"; Macro="ROBOT_WHEEL_DIAM_CM" }
-    @{ Id=12; Tab=1; Key="WB";     Label="Khoảng cách tâm 2 bánh";                Unit="cm";     Min=6.0;   Max=16.0;    Inc=0.05; Dec=2; Type="f2"; File="robot_config"; Macro="ROBOT_TRACK_WIDTH_CM" }
-    @{ Id=13; Tab=1; Key="PPR";    Label="Số xung Encoder / vòng bánh (4x)";      Unit="ticks";  Min=100.0; Max=10000.0; Inc=10.0; Dec=0; Type="f0"; File="robot_config"; Macro="ROBOT_ENCODER_PPR" }
-    @{ Id=14; Tab=2; Key="TOF";    Label="Tầm quét 3× VL53L0X";                   Unit="mm";     Min=150.0; Max=800.0;   Inc=10.0; Dec=0; Type="u";  File="robot_config"; Macro="TOF_SCAN_MAX_MM" }
-    @{ Id=15; Tab=2; Key="SCANX";  Label="Tọa độ X bắt đầu bật quét ToF (Ô3=60)"; Unit="cm";     Min=0.0;   Max=120.0;   Inc=5.0;  Dec=1; Type="f1"; File="robot_config"; Macro="FSM_SCAN_TRIGGER_X_CM" }
-    @{ Id=16; Tab=2; Key="LD";     Label="Pure Pursuit Lookahead offset";         Unit="cm";     Min=4.0;   Max=12.0;    Inc=0.5;  Dec=1; Type="f1"; File="pure_pursuit"; Macro="PP_LOOKAHEAD_OFFSET_CM" }
-    @{ Id=17; Tab=2; Key="YAWINV"; Label="Đảo chiều Yaw MPU6050 (0=Thường,1=Đảo)"; Unit="0|1";    Min=0.0;   Max=1.0;     Inc=1.0;  Dec=0; Type="i";  File="robot_config"; Macro="IMU_DEFAULT_YAW_INVERT" }
+# =============================================================================
+# 1-TO-1 PORT OF Core/Src/arena_map.c + Core/Src/astar_planner.c IN C#
+# =============================================================================
+if (-not ("CheesyAStar" -as [type])) {
+$astarCs = @'
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Text.RegularExpressions;
+
+public static class CheesyAStar
+{
+    public const int MAP_ROWS = 50;
+    public const int MAP_COLS = 74;
+    public const int MAP_MARGIN = 1;
+    public const float GRID_SIZE_CM = 2.5f;
+    public const float MAP_Y_OFFSET_CM = -2.5f;
+    public const float WALL_NEAR_PENALTY = 0.35f;
+    public const byte CELL_FREE = 0;
+    public const byte CELL_OBST = 1;
+    public const byte CELL_BLOCK = 2;
+    public const byte CELL_WALL = 3;
+    public const byte CELL_INFLATED = 4;
+
+    private static readonly int[] DIR_R = { -1, 1, 0, 0, -1, -1, 1, 1 };
+    private static readonly int[] DIR_C = { 0, 0, -1, 1, -1, 1, -1, 1 };
+    private static readonly float[] DIR_W = {
+        1.0f, 1.0f, 1.0f, 1.0f,
+        1.41421356f, 1.41421356f, 1.41421356f, 1.41421356f
+    };
+
+    private static readonly float[,] PILLARS = new float[,] {
+        { 5.0f, 15.0f }, { 55.0f, 25.0f }, { 30.0f, 35.0f }, { 55.0f, 45.0f },
+        { 5.0f, 55.0f }, { 5.0f, 75.0f }, { 35.0f, 90.0f }, { 45.0f, 115.0f },
+        { 65.0f, 75.0f }, { 75.0f, 65.0f }, { 85.0f, 100.0f }, { 95.0f, 65.0f },
+        { 115.0f, 115.0f }, { 125.0f, 85.0f }, { 145.0f, 45.0f }, { 145.0f, 15.0f },
+        { 175.0f, 25.0f }
+    };
+
+    private static byte[,] s_staticGrid = new byte[MAP_ROWS, MAP_COLS];
+    private static byte[,] s_cspaceGrid = new byte[MAP_ROWS, MAP_COLS];
+    private static bool s_inited = false;
+
+    public static void LoadStaticGridFromCFile(string arenaMapCPath)
+    {
+        string text = File.ReadAllText(arenaMapCPath);
+        Match m = Regex.Match(text, @"s_arena_grid\[MAP_NY\]\[MAP_NX\]\s*=\s*\{(?<body>.*?)\};", RegexOptions.Singleline);
+        if (!m.Success) throw new InvalidOperationException("Khong tim thay s_arena_grid trong arena_map.c");
+        MatchCollection rows = Regex.Matches(m.Groups["body"].Value, @"\{([0-4,\s]+)\}");
+        if (rows.Count != MAP_ROWS)
+            throw new InvalidOperationException(string.Format("So hang grid ({0}) != {1}", rows.Count, MAP_ROWS));
+
+        for (int r = 0; r < MAP_ROWS; r++)
+        {
+            string[] cols = rows[r].Groups[1].Value.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+            if (cols.Length != MAP_COLS)
+                throw new InvalidOperationException(string.Format("Hang {0} co {1} cot != {2}", r, cols.Length, MAP_COLS));
+            for (int c = 0; c < MAP_COLS; c++)
+            {
+                s_staticGrid[r, c] = byte.Parse(cols[c].Trim(), CultureInfo.InvariantCulture);
+            }
+        }
+        ResetCSpace();
+    }
+
+    public static void ResetCSpace()
+    {
+        Array.Copy(s_staticGrid, s_cspaceGrid, s_staticGrid.Length);
+        s_inited = true;
+    }
+
+    public static int GetGridCol(float x)
+    {
+        int col = (int)Math.Floor((x + 2.5f + 1e-3f) / GRID_SIZE_CM);
+        if (col < 0) col = 0;
+        if (col >= MAP_COLS) col = MAP_COLS - 1;
+        return col;
+    }
+
+    public static int GetGridRow(float y)
+    {
+        int row = (int)Math.Floor((y - MAP_Y_OFFSET_CM + 1e-3f) / GRID_SIZE_CM);
+        if (row < 0) row = 0;
+        if (row >= MAP_ROWS) row = MAP_ROWS - 1;
+        return row;
+    }
+
+    public static float GetWorldX(int col) { return ((float)col - MAP_MARGIN + 0.5f) * GRID_SIZE_CM; }
+    public static float GetWorldY(int row) { return MAP_Y_OFFSET_CM + ((float)row + 0.5f) * GRID_SIZE_CM; }
+
+    private static bool WorldToGrid(float x, float y, out int outR, out int outC)
+    {
+        outR = 0; outC = 0;
+        if (float.IsNaN(x) || float.IsNaN(y) || float.IsInfinity(x) || float.IsInfinity(y)) return false;
+
+        if (x >= -2.5f && x <= 182.5f && y >= -2.5f && y <= 122.5f)
+        {
+            int c = (int)Math.Floor((x + 2.5f + 1e-3f) / GRID_SIZE_CM);
+            int r = (int)Math.Floor((y + 2.5f + 1e-3f) / GRID_SIZE_CM);
+            if (c >= MAP_COLS) c = MAP_COLS - 1;
+            if (r >= MAP_ROWS) r = MAP_ROWS - 1;
+            if (r >= 0 && r < MAP_ROWS && c >= 0 && c < MAP_COLS)
+            {
+                outR = r; outC = c;
+                return true;
+            }
+            return false;
+        }
+        if (y >= -10.5f && y < -2.5f && x >= 0.0f && x <= 60.0f)
+        {
+            int c = (int)Math.Floor((x + 2.5f + 1e-3f) / GRID_SIZE_CM);
+            if (c >= 0 && c < MAP_COLS) { outR = 0; outC = c; return true; }
+            return false;
+        }
+        if (y >= -10.5f && y < -2.5f && x >= 120.0f && x <= 180.0f)
+        {
+            int c = (int)Math.Floor((x + 2.5f + 1e-3f) / GRID_SIZE_CM);
+            if (c >= 0 && c < MAP_COLS) { outR = 0; outC = c; return true; }
+            return false;
+        }
+        return false;
+    }
+
+    public static void AddDynamicObstacleBox(float cx, float cy, float halfSizeCm, float inflateCm)
+    {
+        if (!s_inited) ResetCSpace();
+        if (halfSizeCm < 0.5f) halfSizeCm = 0.5f;
+        if (inflateCm < 0.0f) inflateCm = 0.0f;
+
+        float x0 = cx - halfSizeCm, x1 = cx + halfSizeCm;
+        float y0 = cy - halfSizeCm, y1 = cy + halfSizeCm;
+        float reach = halfSizeCm + inflateCm + GRID_SIZE_CM;
+        int cMin = GetGridCol(cx - reach), cMax = GetGridCol(cx + reach);
+        int rMin = GetGridRow(cy - reach), rMax = GetGridRow(cy + reach);
+
+        for (int r = rMin; r <= rMax; r++)
+        {
+            float wy = GetWorldY(r);
+            for (int c = cMin; c <= cMax; c++)
+            {
+                float wx = GetWorldX(c);
+                float dx = (wx < x0) ? (x0 - wx) : (wx > x1 ? (wx - x1) : 0.0f);
+                float dy = (wy < y0) ? (y0 - wy) : (wy > y1 ? (wy - y1) : 0.0f);
+                float d = (float)Math.Sqrt(dx * dx + dy * dy);
+                if (d <= 0.001f) s_cspaceGrid[r, c] = CELL_OBST;
+                else if (d <= inflateCm && s_cspaceGrid[r, c] == CELL_FREE) s_cspaceGrid[r, c] = CELL_INFLATED;
+            }
+        }
+    }
+
+    private static float Heuristic(int r1, int c1, int r2, int c2)
+    {
+        float dr = r1 - r2, dc = c1 - c2;
+        return (float)Math.Sqrt(dr * dr + dc * dc);
+    }
+
+    private static float CellProximityPenalty(int r, int c)
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            int nr = r + DIR_R[i], nc = c + DIR_C[i];
+            if (nr < 0 || nr >= MAP_ROWS || nc < 0 || nc >= MAP_COLS || s_cspaceGrid[nr, nc] != CELL_FREE)
+                return WALL_NEAR_PENALTY;
+        }
+        return 0.0f;
+    }
+
+    public static bool IsLineClear(float x1, float y1, float x2, float y2)
+    {
+        if (!s_inited) return false;
+        float dx = x2 - x1, dy = y2 - y1;
+        float dist = (float)Math.Sqrt(dx * dx + dy * dy);
+        int steps = Math.Max(2, (int)Math.Ceiling(dist / 0.5f));
+        int prevR = -1, prevC = -1;
+        for (int s = 0; s <= steps; s++)
+        {
+            float t = (float)s / steps;
+            int r, c;
+            if (!WorldToGrid(x1 + t * dx, y1 + t * dy, out r, out c)) return false;
+            if (s_cspaceGrid[r, c] != CELL_FREE) return false;
+            if (prevR >= 0 && r != prevR && c != prevC)
+            {
+                if (s_cspaceGrid[prevR, c] != CELL_FREE || s_cspaceGrid[r, prevC] != CELL_FREE) return false;
+            }
+            prevR = r; prevC = c;
+        }
+        return true;
+    }
+
+    private static bool SnapToNearestFree(ref int ioR, ref int ioC, int maxRad)
+    {
+        int r0 = ioR, c0 = ioC;
+        if (s_cspaceGrid[r0, c0] == CELL_FREE) return true;
+        if (s_cspaceGrid[r0, c0] != CELL_INFLATED) return false;
+        int bestR = -1, bestC = -1, bestD2 = 999999;
+        for (int rad = 1; rad <= maxRad; rad++)
+        {
+            for (int dr = -rad; dr <= rad; dr++)
+            {
+                for (int dc = -rad; dc <= rad; dc++)
+                {
+                    int rr = r0 + dr, cc = c0 + dc;
+                    if (rr < 0 || rr >= MAP_ROWS || cc < 0 || cc >= MAP_COLS) continue;
+                    if (s_cspaceGrid[rr, cc] == CELL_FREE)
+                    {
+                        int d2 = dr * dr + dc * dc;
+                        if (d2 < bestD2) { bestD2 = d2; bestR = rr; bestC = cc; }
+                    }
+                }
+            }
+            if (bestR >= 0) { ioR = bestR; ioC = bestC; return true; }
+        }
+        return false;
+    }
+
+    private struct HeapNode { public int R, C; public float F; }
+
+    public static List<double[]> PlanPath(float startX, float startY, float goalX, float goalY, bool allowStartSnap)
+    {
+        var res = new List<double[]>();
+        if (!s_inited) ResetCSpace();
+
+        int sr, sc, gr, gc;
+        if (!WorldToGrid(startX, startY, out sr, out sc) || !WorldToGrid(goalX, goalY, out gr, out gc))
+            return res;
+
+        float effStartX = startX, effStartY = startY;
+        if (s_cspaceGrid[sr, sc] != CELL_FREE)
+        {
+            if (!allowStartSnap || !SnapToNearestFree(ref sr, ref sc, 4)) return res;
+            effStartX = GetWorldX(sc);
+            effStartY = GetWorldY(sr);
+        }
+        if (s_cspaceGrid[gr, gc] != CELL_FREE) return res;
+
+        if (sr == gr && sc == gc)
+        {
+            if (!IsLineClear(effStartX, effStartY, goalX, goalY)) return res;
+            res.Add(new double[] { effStartX, effStartY });
+            res.Add(new double[] { goalX, goalY });
+            return res;
+        }
+
+        float[,] gScore = new float[MAP_ROWS, MAP_COLS];
+        int[,] parentR = new int[MAP_ROWS, MAP_COLS];
+        int[,] parentC = new int[MAP_ROWS, MAP_COLS];
+        bool[,] closed = new bool[MAP_ROWS, MAP_COLS];
+        for (int r = 0; r < MAP_ROWS; r++)
+            for (int c = 0; c < MAP_COLS; c++)
+            {
+                gScore[r, c] = 1e9f;
+                parentR[r, c] = -1;
+                parentC[r, c] = -1;
+            }
+
+        var heap = new List<HeapNode>(1024);
+        Action<int, int, float> push = (r, c, f) =>
+        {
+            heap.Add(new HeapNode { R = r, C = c, F = f });
+            int idx = heap.Count - 1;
+            while (idx > 0)
+            {
+                int p = (idx - 1) / 2;
+                if (heap[idx].F < heap[p].F) { var t = heap[idx]; heap[idx] = heap[p]; heap[p] = t; idx = p; }
+                else break;
+            }
+        };
+        Func<HeapNode> pop = () =>
+        {
+            var top = heap[0];
+            int last = heap.Count - 1;
+            heap[0] = heap[last];
+            heap.RemoveAt(last);
+            int idx = 0;
+            while (true)
+            {
+                int l = 2 * idx + 1, rgt = 2 * idx + 2, sm = idx;
+                if (l < heap.Count && heap[l].F < heap[sm].F) sm = l;
+                if (rgt < heap.Count && heap[rgt].F < heap[sm].F) sm = rgt;
+                if (sm != idx) { var t = heap[idx]; heap[idx] = heap[sm]; heap[sm] = t; idx = sm; }
+                else break;
+            }
+            return top;
+        };
+
+        gScore[sr, sc] = 0.0f;
+        push(sr, sc, Heuristic(sr, sc, gr, gc));
+        bool found = false;
+
+        while (heap.Count > 0)
+        {
+            var cur = pop();
+            if (cur.R == gr && cur.C == gc) { found = true; break; }
+            if (closed[cur.R, cur.C]) continue;
+            closed[cur.R, cur.C] = true;
+
+            float curG = gScore[cur.R, cur.C];
+            for (int i = 0; i < 8; i++)
+            {
+                int nr = cur.R + DIR_R[i], nc = cur.C + DIR_C[i];
+                if (nr < 0 || nr >= MAP_ROWS || nc < 0 || nc >= MAP_COLS) continue;
+                if (s_cspaceGrid[nr, nc] != CELL_FREE) continue;
+                if (i >= 4)
+                {
+                    if (s_cspaceGrid[cur.R + DIR_R[i], cur.C] != CELL_FREE ||
+                        s_cspaceGrid[cur.R, cur.C + DIR_C[i]] != CELL_FREE)
+                        continue;
+                }
+                float tentG = curG + DIR_W[i] + CellProximityPenalty(nr, nc);
+                if (tentG < gScore[nr, nc])
+                {
+                    gScore[nr, nc] = tentG;
+                    parentR[nr, nc] = cur.R;
+                    parentC[nr, nc] = cur.C;
+                    push(nr, nc, tentG + Heuristic(nr, nc, gr, gc));
+                }
+            }
+        }
+
+        if (!found) return res;
+
+        var rev = new List<int[]>(256);
+        int tr = gr, tc = gc;
+        while (rev.Count < 600)
+        {
+            rev.Add(new[] { tr, tc });
+            if (tr == sr && tc == sc) break;
+            int pr = parentR[tr, tc], pc = parentC[tr, tc];
+            if (pr < 0 || pc < 0) return res;
+            tr = pr; tc = pc;
+        }
+        if (rev.Count == 0 || rev[rev.Count - 1][0] != sr || rev[rev.Count - 1][1] != sc) return res;
+        rev.Reverse();
+
+        res.Add(new double[] { effStartX, effStartY });
+        int curIdx = 0;
+        float cx = effStartX, cy = effStartY;
+        while (curIdx < rev.Count - 1)
+        {
+            if (IsLineClear(cx, cy, goalX, goalY))
+            {
+                res.Add(new double[] { goalX, goalY });
+                break;
+            }
+            int furth = curIdx + 1;
+            for (int ni = rev.Count - 1; ni > curIdx; ni--)
+            {
+                float nx = (ni == rev.Count - 1) ? goalX : GetWorldX(rev[ni][1]);
+                float ny = (ni == rev.Count - 1) ? goalY : GetWorldY(rev[ni][0]);
+                if (IsLineClear(cx, cy, nx, ny)) { furth = ni; break; }
+            }
+            curIdx = furth;
+            if (curIdx == rev.Count - 1)
+            {
+                res.Add(new double[] { goalX, goalY });
+                break;
+            }
+            cx = GetWorldX(rev[curIdx][1]);
+            cy = GetWorldY(rev[curIdx][0]);
+            res.Add(new double[] { cx, cy });
+        }
+        return res;
+    }
+
+    public static List<double[]> PlanPathToFinish(float startX, float startY, bool allowStartSnap)
+    {
+        float[] goalXs = { 150.0f, 130.0f, 166.0f, 138.0f, 158.0f };
+        for (int i = 0; i < goalXs.Length; i++)
+        {
+            var p = PlanPath(startX, startY, goalXs[i], -8.0f, allowStartSnap);
+            if (p.Count >= 2) return p;
+        }
+        return new List<double[]>();
+    }
+
+    public static bool IsPathBlocked(List<double[]> wps)
+    {
+        if (wps == null || wps.Count < 2) return false;
+        for (int i = 0; i < wps.Count - 1; i++)
+        {
+            if (!IsLineClear((float)wps[i][0], (float)wps[i][1], (float)wps[i + 1][0], (float)wps[i + 1][1]))
+                return true;
+        }
+        return false;
+    }
+
+    private static double DistPointToBox(double px, double py, double x0, double y0, double x1, double y1)
+    {
+        double dx = (px < x0) ? (x0 - px) : (px > x1 ? (px - x1) : 0.0);
+        double dy = (py < y0) ? (y0 - py) : (py > y1 ? (py - y1) : 0.0);
+        return Math.Sqrt(dx * dx + dy * dy);
+    }
+
+    public static double DistToObstaclesCm(double px, double py, double[] dynX, double[] dynY)
+    {
+        double minD = 999.0;
+        double dLeft  = (px <= 0.0) ? 0.0 : px;
+        double dRight = (px >= 180.0) ? 0.0 : (180.0 - px);
+        double dTop   = (py >= 120.0) ? 0.0 : (120.0 - py);
+        if (dLeft < minD) minD = dLeft;
+        if (dRight < minD) minD = dRight;
+        if (dTop < minD) minD = dTop;
+
+        double dU = DistPointToBox(px, py, 60.0, 0.0, 120.0, 60.0);
+        if (dU < minD) minD = dU;
+
+        for (int i = 0; i < 17; i++)
+        {
+            double cx = PILLARS[i, 0], cy = PILLARS[i, 1];
+            double d = DistPointToBox(px, py, cx - 5.0, cy - 5.0, cx + 5.0, cy + 5.0);
+            if (d < minD) minD = d;
+        }
+
+        if (dynX != null && dynY != null)
+        {
+            for (int i = 0; i < dynX.Length; i++)
+            {
+                double d = DistPointToBox(px, py, dynX[i] - 5.0, dynY[i] - 5.0, dynX[i] + 5.0, dynY[i] + 5.0);
+                if (d < minD) minD = d;
+            }
+        }
+        return minD;
+    }
+
+    public static double[] ComputeClearances(double rx, double ry, double headingRad, double[] dynX, double[] dynY)
+    {
+        double centerClr = DistToObstaclesCm(rx, ry, dynX, dynY);
+        double c = Math.Cos(headingRad), s = Math.Sin(headingRad);
+        double[,] pts = new double[,] {
+            { 5.0,  5.73 }, { 5.0, -5.73 }, { -5.0, -5.73 }, { -5.0,  5.73 },
+            { 5.0,  0.0  }, { -5.0, 0.0  }, {  0.0,  5.73 }, {  0.0, -5.73 }
+        };
+        double chassisClr = 999.0;
+        for (int i = 0; i < 8; i++)
+        {
+            double wx = rx + pts[i, 0] * c - pts[i, 1] * s;
+            double wy = ry + pts[i, 0] * s + pts[i, 1] * c;
+            double d = DistToObstaclesCm(wx, wy, dynX, dynY);
+            if (d < chassisClr) chassisClr = d;
+        }
+        return new double[] { centerClr, chassisClr };
+    }
+}
+'@
+    Add-Type -TypeDefinition $astarCs -Language CSharp
+}
+
+[CheesyAStar]::LoadStaticGridFromCFile($script:ArenaMapPath)
+
+# =============================================================================
+# 17 TUNABLE PARAMETERS & ARENA CONSTANTS
+# =============================================================================
+$script:ParamSpecs = @(
+    @{ Id=1;  Tab=0; Key="V1";     Label="Vận tốc Ô 1 - Khe hẹp xuất phát";       Unit="cm/s";  Min=10.0;  Max=30.0;    Inc=0.5;  Dec=1; Type="f1"; File="robot_config"; Macro="V_TARGET_O1_CMS" }
+    @{ Id=2;  Tab=0; Key="V2";     Label="Vận tốc Ô 2 - Bo cua trái";             Unit="cm/s";  Min=10.0;  Max=30.0;    Inc=0.5;  Dec=1; Type="f1"; File="robot_config"; Macro="V_TARGET_O2_CMS" }
+    @{ Id=3;  Tab=0; Key="V3";     Label="Vận tốc Ô 3 - Đoạn thẳng + bật ToF";    Unit="cm/s";  Min=10.0;  Max=30.0;    Inc=0.5;  Dec=1; Type="f1"; File="robot_config"; Macro="V_TARGET_O3_CMS" }
+    @{ Id=4;  Tab=0; Key="V4";     Label="Vận tốc Ô 4 - Bo cua phải + quét ToF";  Unit="cm/s";  Min=10.0;  Max=30.0;    Inc=0.5;  Dec=1; Type="f1"; File="robot_config"; Macro="V_TARGET_O4_CMS" }
+    @{ Id=5;  Tab=0; Key="V5";     Label="Vận tốc Ô 5 - Xuôi về đích";            Unit="cm/s";  Min=10.0;  Max=30.0;    Inc=0.5;  Dec=1; Type="f1"; File="robot_config"; Macro="V_TARGET_O5_CMS" }
+    @{ Id=6;  Tab=0; Key="VDET";   Label="Trần tốc độ khi né vật cản động";       Unit="cm/s";  Min=10.0;  Max=30.0;    Inc=0.5;  Dec=1; Type="f1"; File="robot_config"; Macro="V_TARGET_DETOUR_MAX_CMS" }
+    @{ Id=7;  Tab=0; Key="VMAX";   Label="Giới hạn tốc độ tối đa toàn xe";        Unit="cm/s";  Min=15.0;  Max=35.0;    Inc=0.5;  Dec=1; Type="f1"; File="robot_config"; Macro="ROBOT_MAX_SPEED_CMS" }
+    @{ Id=8;  Tab=0; Key="ACC";    Label="Gia tốc tối đa chống trượt bánh";       Unit="cm/s²"; Min=20.0;  Max=150.0;   Inc=5.0;  Dec=1; Type="f1"; File="robot_config"; Macro="ROBOT_ACCEL_MAX_CMS2" }
+    @{ Id=9;  Tab=1; Key="KP";     Label="Motor PI - Kp (trái & phải)";           Unit="-";     Min=10.0;  Max=600.0;   Inc=5.0;  Dec=1; Type="f1"; File="robot_config"; Macro="MOTOR_DEFAULT_KP" }
+    @{ Id=10; Tab=1; Key="KI";     Label="Motor PI - Ki (tăng nếu hụt tốc)";      Unit="-";     Min=0.0;   Max=50.0;    Inc=0.1;  Dec=2; Type="f2"; File="robot_config"; Macro="MOTOR_DEFAULT_KI" }
+    @{ Id=11; Tab=1; Key="WD";     Label="Đường kính bánh xe";                    Unit="cm";    Min=2.5;   Max=8.0;     Inc=0.05; Dec=2; Type="f2"; File="robot_config"; Macro="ROBOT_WHEEL_DIAM_CM" }
+    @{ Id=12; Tab=1; Key="WB";     Label="Khoảng cách tâm 2 bánh";                Unit="cm";    Min=6.0;   Max=16.0;    Inc=0.05; Dec=2; Type="f2"; File="robot_config"; Macro="ROBOT_TRACK_WIDTH_CM" }
+    @{ Id=13; Tab=1; Key="PPR";    Label="Số xung Encoder / vòng bánh (4x)";      Unit="ticks"; Min=100.0; Max=10000.0; Inc=10.0; Dec=0; Type="f0"; File="robot_config"; Macro="ROBOT_ENCODER_PPR" }
+    @{ Id=14; Tab=2; Key="TOF";    Label="Tầm quét 3× VL53L0X";                   Unit="mm";    Min=150.0; Max=800.0;   Inc=10.0; Dec=0; Type="u";  File="robot_config"; Macro="TOF_SCAN_MAX_MM" }
+    @{ Id=15; Tab=2; Key="SCANX";  Label="Tọa độ X bật quét ToF (Ô 3=60)";        Unit="cm";    Min=0.0;   Max=120.0;   Inc=5.0;  Dec=1; Type="f1"; File="robot_config"; Macro="FSM_SCAN_TRIGGER_X_CM" }
+    @{ Id=16; Tab=2; Key="LD";     Label="Pure Pursuit Lookahead offset";         Unit="cm";    Min=4.0;   Max=12.0;    Inc=0.5;  Dec=1; Type="f1"; File="pure_pursuit"; Macro="PP_LOOKAHEAD_OFFSET_CM" }
+    @{ Id=17; Tab=2; Key="YAWINV"; Label="Đảo chiều Yaw MPU6050 (0=Thường,1=Đảo)"; Unit="0|1";   Min=0.0;   Max=1.0;     Inc=1.0;  Dec=0; Type="i";  File="robot_config"; Macro="IMU_DEFAULT_YAW_INVERT" }
 )
 
-$StaticPillars = @(
+$script:StaticPillars = @(
     @{ Name="T1";  X=5.0;   Y=15.0 }
     @{ Name="T2";  X=55.0;  Y=25.0 }
     @{ Name="T3";  X=30.0;  Y=35.0 }
@@ -67,7 +522,7 @@ $StaticPillars = @(
     @{ Name="T17"; X=175.0; Y=25.0 }
 )
 
-$FsmStateNames = @{
+$script:FsmStateNames = @{
     0 = "FSM_IDLE (Chờ chạy)"
     1 = "FSM_RUN_O1_O2"
     2 = "FSM_RUN_SCAN_O3_O5"
@@ -80,14 +535,14 @@ function Ensure-Shortcuts {
     try {
         $ws = New-Object -ComObject WScript.Shell
         foreach ($it in @(
-            @{ Lnk="NAP_CODE.lnk"; Bat="NAP_CODE.bat"; Ico=$NapIcoPath; Desc="Build va Nap firmware STM32F411CEU6 qua ST-Link" },
-            @{ Lnk="CHINH_THONG_SO.lnk"; Bat="CHINH_THONG_SO.bat"; Ico=$TunerIcoPath; Desc="Dashboard xem quy dao 2D + chinh 17 thong so Cheesy Robot" }
+            @{ Lnk="NAP_CODE.lnk"; Bat="NAP_CODE.bat"; Ico=$script:NapIcoPath; Desc="Build va Nap firmware STM32F411CEU6 qua ST-Link" },
+            @{ Lnk="CHINH_THONG_SO.lnk"; Bat="CHINH_THONG_SO.bat"; Ico=$script:TunerIcoPath; Desc="Dashboard xem quy dao 2D + chinh 17 thong so Cheesy Robot" }
         )) {
-            $lnkPath = Join-Path $RootDir $it.Lnk
+            $lnkPath = Join-Path $script:RootDir $it.Lnk
             if (-not (Test-Path $lnkPath)) {
                 $sc = $ws.CreateShortcut($lnkPath)
-                $sc.TargetPath = Join-Path $RootDir $it.Bat
-                $sc.WorkingDirectory = $RootDir
+                $sc.TargetPath = Join-Path $script:RootDir $it.Bat
+                $sc.WorkingDirectory = $script:RootDir
                 if (Test-Path $it.Ico) { $sc.IconLocation = "$($it.Ico),0" }
                 $sc.Description = $it.Desc
                 $sc.Save()
@@ -121,9 +576,9 @@ function Format-CDefineValue([double]$Val, [string]$Type) {
 
 function Read-CodeDefaults {
     $vals = [ordered]@{}
-    $txtRobot = [IO.File]::ReadAllText($RobotCfgPath, [Text.Encoding]::UTF8)
-    $txtPP    = [IO.File]::ReadAllText($PurePursuitPath, [Text.Encoding]::UTF8)
-    foreach ($p in $ParamSpecs) {
+    $txtRobot = [IO.File]::ReadAllText($script:RobotCfgPath, [Text.Encoding]::UTF8)
+    $txtPP    = [IO.File]::ReadAllText($script:PurePursuitPath, [Text.Encoding]::UTF8)
+    foreach ($p in $script:ParamSpecs) {
         $txt = if ($p.File -eq "pure_pursuit") { $txtPP } else { $txtRobot }
         $pat = "(?m)^\s*#define\s+" + [regex]::Escape($p.Macro) + "\s+([+-]?\d+(?:\.\d+)?)[fFuU]*"
         $m = [regex]::Match($txt, $pat)
@@ -137,7 +592,7 @@ function Read-CodeDefaults {
 }
 
 function Write-CodeParam([hashtable]$Spec, [double]$NewVal) {
-    $path = if ($Spec.File -eq "pure_pursuit") { $PurePursuitPath } else { $RobotCfgPath }
+    $path = if ($Spec.File -eq "pure_pursuit") { $script:PurePursuitPath } else { $script:RobotCfgPath }
     $txt  = [IO.File]::ReadAllText($path, [Text.Encoding]::UTF8)
     $cVal = Format-CDefineValue $NewVal $Spec.Type
     $pat  = "(?m)^(\s*#define\s+" + [regex]::Escape($Spec.Macro) + "\s+)([+-]?\d+(?:\.\d+)?[fFuU]*)"
@@ -164,7 +619,27 @@ function Parse-CfgLine([string]$Line, [System.Collections.IDictionary]$Target) {
     }
 }
 
-function Raycast-DemoToF([double]$rx, [double]$ry, [double]$phiRad, [double]$mountCm, [bool]$hasDemoObs) {
+function Choose-DemoO4Obstacle([object]$CleanPath) {
+    $cands = @(
+        @(145.0, 75.0), @(140.0, 75.0), @(150.0, 75.0),
+        @(145.0, 70.0), @(140.0, 80.0), @(155.0, 75.0),
+        @(135.0, 75.0), @(145.0, 85.0)
+    )
+    foreach ($cand in $cands) {
+        [CheesyAStar]::ResetCSpace()
+        [CheesyAStar]::AddDynamicObstacleBox([float]$cand[0], [float]$cand[1], 5.0, 6.75)
+        $blocked = [CheesyAStar]::IsPathBlocked($CleanPath)
+        $detour  = [CheesyAStar]::PlanPathToFinish(135.0, 95.0, $true)
+        if ($blocked -and $detour.Count -ge 2) {
+            [CheesyAStar]::ResetCSpace()
+            return @{ X=[double]$cand[0]; Y=[double]$cand[1] }
+        }
+    }
+    [CheesyAStar]::ResetCSpace()
+    return @{ X=145.0; Y=75.0 }
+}
+
+function Raycast-DemoToF([double]$rx, [double]$ry, [double]$phiRad, [double]$mountCm, [bool]$hasDemoObs, [double]$obsX, [double]$obsY) {
     $c = [math]::Cos($phiRad)
     $s = [math]::Sin($phiRad)
     $ox = $rx + $mountCm * $c
@@ -174,13 +649,13 @@ function Raycast-DemoToF([double]$rx, [double]$ry, [double]$phiRad, [double]$mou
         $py = $oy + $d * $s
         if ($px -le 0.0 -or $px -ge 180.0 -or $py -ge 120.0) { return [int][math]::Round($d * 10.0) }
         if ($px -ge 60.0 -and $px -le 120.0 -and $py -ge 0.0 -and $py -le 60.0) { return [int][math]::Round($d * 10.0) }
-        foreach ($p in $StaticPillars) {
+        foreach ($p in $script:StaticPillars) {
             if ($px -ge ($p.X - 5.0) -and $px -le ($p.X + 5.0) -and $py -ge ($p.Y - 5.0) -and $py -le ($p.Y + 5.0)) {
                 return [int][math]::Round($d * 10.0)
             }
         }
         if ($hasDemoObs) {
-            if ($px -ge 120.0 -and $px -le 130.0 -and $py -ge 60.0 -and $py -le 70.0) {
+            if ($px -ge ($obsX - 5.0) -and $px -le ($obsX + 5.0) -and $py -ge ($obsY - 5.0) -and $py -le ($obsY + 5.0)) {
                 return [int][math]::Round($d * 10.0)
             }
         }
@@ -189,243 +664,280 @@ function Raycast-DemoToF([double]$rx, [double]$ry, [double]$phiRad, [double]$mou
 }
 
 function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
-    $cBg      = [System.Drawing.Color]::FromArgb(15, 23, 42)
-    $cPanel   = [System.Drawing.Color]::FromArgb(30, 41, 59)
-    $cInput   = [System.Drawing.Color]::FromArgb(17, 24, 39)
-    $cFg      = [System.Drawing.Color]::FromArgb(241, 245, 249)
-    $cMuted   = [System.Drawing.Color]::FromArgb(148, 163, 184)
-    $cCyan    = [System.Drawing.Color]::FromArgb(56, 189, 248)
-    $script:cBlue    = [System.Drawing.Color]::FromArgb(37, 99, 235)
-    $cGreen   = [System.Drawing.Color]::FromArgb(5, 150, 105)
-    $cAmber   = [System.Drawing.Color]::FromArgb(217, 119, 6)
-    $cTeal    = [System.Drawing.Color]::FromArgb(13, 148, 136)
-    $cRed     = [System.Drawing.Color]::FromArgb(220, 38, 38)
-    $cSlate   = [System.Drawing.Color]::FromArgb(71, 85, 105)
+    # All colors in script scope -> never null inside any event handler
+    $script:Theme = @{
+        Bg    = [System.Drawing.Color]::FromArgb(15, 23, 42)
+        Panel = [System.Drawing.Color]::FromArgb(30, 41, 59)
+        Input = [System.Drawing.Color]::FromArgb(17, 24, 39)
+        Fg    = [System.Drawing.Color]::FromArgb(241, 245, 249)
+        Muted = [System.Drawing.Color]::FromArgb(148, 163, 184)
+        Cyan  = [System.Drawing.Color]::FromArgb(56, 189, 248)
+        Blue  = [System.Drawing.Color]::FromArgb(37, 99, 235)
+        Green = [System.Drawing.Color]::FromArgb(5, 150, 105)
+        Amber = [System.Drawing.Color]::FromArgb(217, 119, 6)
+        Teal  = [System.Drawing.Color]::FromArgb(13, 148, 136)
+        Red   = [System.Drawing.Color]::FromArgb(220, 38, 38)
+        Slate = [System.Drawing.Color]::FromArgb(71, 85, 105)
+    }
 
-    $fontUi    = New-Object System.Drawing.Font("Segoe UI", 9.0)
-    $fontBold  = New-Object System.Drawing.Font("Segoe UI", 9.0, [System.Drawing.FontStyle]::Bold)
-    $fontSmall = New-Object System.Drawing.Font("Segoe UI", 8.0)
-    $fontMono  = New-Object System.Drawing.Font("Consolas", 8.8)
+    $script:UI = @{}
+    $script:Fn = @{}
+
+    $fontUi    = New-Object System.Drawing.Font("Segoe UI", 8.5)
+    $fontBold  = New-Object System.Drawing.Font("Segoe UI", 8.5, [System.Drawing.FontStyle]::Bold)
+    $fontSmall = New-Object System.Drawing.Font("Segoe UI", 7.8)
+    $fontMono  = New-Object System.Drawing.Font("Consolas", 8.2)
 
     $form = New-Object System.Windows.Forms.Form
-    $form.Text = "Cheesy Robot - Bảng Giám Sát Quỹ Đạo & Chỉnh Thông Số (STM32F411CEU6)"
-    $form.Size = New-Object System.Drawing.Size(1240, 660)
+    $form.Text = "Cheesy Robot - Bảng Giám Sát Quỹ Đạo A* & Chỉnh Thông Số (STM32F411CEU6)"
+    $form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
+    $form.ClientSize = New-Object System.Drawing.Size(1060, 590)
     $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedSingle
     $form.MaximizeBox = $false
     $form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
-    $form.BackColor = $cBg
-    $form.ForeColor = $cFg
+    $form.BackColor = $script:Theme.Bg
+    $form.ForeColor = $script:Theme.Fg
     $form.Font = $fontUi
-    if (Test-Path $TunerIcoPath) {
-        $form.Icon = New-Object System.Drawing.Icon($TunerIcoPath)
+    if (Test-Path $script:TunerIcoPath) {
+        $form.Icon = New-Object System.Drawing.Icon($script:TunerIcoPath)
     }
+    $script:UI.Form = $form
 
     # =========================================================================
-    # LEFT COLUMN (x=12, w=560): 2D Map + Live Telemetry + Map Controls
+    # LEFT COLUMN (x=10, w=480): 2D Map + Map Bar + Telemetry Panel
     # =========================================================================
-    $script:mapW = 560
-    $script:mapH = 410
+    $script:mapW = 480
+    $script:mapH = 352
     $script:mapBmp = New-Object System.Drawing.Bitmap($script:mapW, $script:mapH)
 
-    $script:picMap = New-Object System.Windows.Forms.PictureBox
-    $script:picMap.Location = New-Object System.Drawing.Point(12, 10)
-    $script:picMap.Size = New-Object System.Drawing.Size($script:mapW, $script:mapH)
-    $script:picMap.BackColor = $cInput
-    $script:picMap.Image = $script:mapBmp
-    $script:picMap.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-    $form.Controls.Add($script:picMap)
+    $picMap = New-Object System.Windows.Forms.PictureBox
+    $picMap.Location = New-Object System.Drawing.Point(10, 8)
+    $picMap.Size = New-Object System.Drawing.Size($script:mapW, $script:mapH)
+    $picMap.BackColor = $script:Theme.Input
+    $picMap.Image = $script:mapBmp
+    $picMap.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    $form.Controls.Add($picMap)
+    $script:UI.PicMap = $picMap
 
-    # Map Controls Bar
     $mapBar = New-Object System.Windows.Forms.Panel
-    $mapBar.Location = New-Object System.Drawing.Point(12, 424)
-    $mapBar.Size = New-Object System.Drawing.Size(560, 34)
-    $mapBar.BackColor = $cPanel
+    $mapBar.Location = New-Object System.Drawing.Point(10, 366)
+    $mapBar.Size = New-Object System.Drawing.Size(480, 34)
+    $mapBar.BackColor = $script:Theme.Panel
     $form.Controls.Add($mapBar)
 
-    $script:btnDemo = New-Object System.Windows.Forms.Button
-    $script:btnDemo.Text = "Mô phỏng Demo"
-    $script:btnDemo.Location = New-Object System.Drawing.Point(6, 4)
-    $script:btnDemo.Size = New-Object System.Drawing.Size(134, 26)
-    $script:btnDemo.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $script:btnDemo.BackColor = $script:cBlue
-    $script:btnDemo.ForeColor = $cFg
-    $script:btnDemo.Font = $fontBold
-    $mapBar.Controls.Add($script:btnDemo)
+    $btnDemo = New-Object System.Windows.Forms.Button
+    $btnDemo.Text = "Mô phỏng Demo"
+    $btnDemo.Location = New-Object System.Drawing.Point(4, 4)
+    $btnDemo.Size = New-Object System.Drawing.Size(118, 26)
+    $btnDemo.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $btnDemo.BackColor = $script:Theme.Blue
+    $btnDemo.ForeColor = $script:Theme.Fg
+    $btnDemo.Font = $fontBold
+    $mapBar.Controls.Add($btnDemo)
+    $script:UI.BtnDemo = $btnDemo
 
     $btnDemoObs = New-Object System.Windows.Forms.Button
     $btnDemoObs.Text = "Cọc Demo Ô 4: TẮT"
-    $btnDemoObs.Location = New-Object System.Drawing.Point(146, 4)
-    $btnDemoObs.Size = New-Object System.Drawing.Size(144, 26)
+    $btnDemoObs.Location = New-Object System.Drawing.Point(126, 4)
+    $btnDemoObs.Size = New-Object System.Drawing.Size(134, 26)
     $btnDemoObs.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnDemoObs.BackColor = $cSlate
-    $btnDemoObs.ForeColor = $cFg
+    $btnDemoObs.BackColor = $script:Theme.Slate
+    $btnDemoObs.ForeColor = $script:Theme.Fg
     $mapBar.Controls.Add($btnDemoObs)
+    $script:UI.BtnDemoObs = $btnDemoObs
 
     $btnClearMap = New-Object System.Windows.Forms.Button
     $btnClearMap.Text = "Xóa quỹ đạo"
-    $btnClearMap.Location = New-Object System.Drawing.Point(296, 4)
-    $btnClearMap.Size = New-Object System.Drawing.Size(122, 26)
+    $btnClearMap.Location = New-Object System.Drawing.Point(264, 4)
+    $btnClearMap.Size = New-Object System.Drawing.Size(102, 26)
     $btnClearMap.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnClearMap.BackColor = $cSlate
-    $btnClearMap.ForeColor = $cFg
+    $btnClearMap.BackColor = $script:Theme.Slate
+    $btnClearMap.ForeColor = $script:Theme.Fg
     $mapBar.Controls.Add($btnClearMap)
+    $script:UI.BtnClearMap = $btnClearMap
 
     $btnExportCsv = New-Object System.Windows.Forms.Button
     $btnExportCsv.Text = "Xuất CSV điểm"
-    $btnExportCsv.Location = New-Object System.Drawing.Point(424, 4)
-    $btnExportCsv.Size = New-Object System.Drawing.Size(130, 26)
+    $btnExportCsv.Location = New-Object System.Drawing.Point(370, 4)
+    $btnExportCsv.Size = New-Object System.Drawing.Size(106, 26)
     $btnExportCsv.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnExportCsv.BackColor = $cTeal
-    $btnExportCsv.ForeColor = $cFg
+    $btnExportCsv.BackColor = $script:Theme.Teal
+    $btnExportCsv.ForeColor = $script:Theme.Fg
     $mapBar.Controls.Add($btnExportCsv)
+    $script:UI.BtnExportCsv = $btnExportCsv
 
-    # Telemetry Readout Panel
     $telPanel = New-Object System.Windows.Forms.Panel
-    $telPanel.Location = New-Object System.Drawing.Point(12, 464)
-    $telPanel.Size = New-Object System.Drawing.Size(560, 146)
-    $telPanel.BackColor = $cPanel
+    $telPanel.Location = New-Object System.Drawing.Point(10, 406)
+    $telPanel.Size = New-Object System.Drawing.Size(480, 174)
+    $telPanel.BackColor = $script:Theme.Panel
     $form.Controls.Add($telPanel)
 
     $lblTelTitle = New-Object System.Windows.Forms.Label
     $lblTelTitle.Text = "THÔNG SỐ XE TRỰC TIẾP (EKF + 3× VL53L0X + ĐỘNG CƠ)"
-    $lblTelTitle.Location = New-Object System.Drawing.Point(10, 6)
-    $lblTelTitle.Size = New-Object System.Drawing.Size(540, 18)
-    $lblTelTitle.ForeColor = $cCyan
+    $lblTelTitle.Location = New-Object System.Drawing.Point(8, 6)
+    $lblTelTitle.Size = New-Object System.Drawing.Size(464, 18)
+    $lblTelTitle.ForeColor = $script:Theme.Cyan
     $lblTelTitle.Font = $fontBold
     $telPanel.Controls.Add($lblTelTitle)
 
-    $script:lblPose = New-Object System.Windows.Forms.Label
-    $script:lblPose.Location = New-Object System.Drawing.Point(10, 30)
-    $script:lblPose.Size = New-Object System.Drawing.Size(540, 22)
-    $script:lblPose.Font = $fontMono
-    $telPanel.Controls.Add($script:lblPose)
+    $lblPose = New-Object System.Windows.Forms.Label
+    $lblPose.Location = New-Object System.Drawing.Point(8, 28)
+    $lblPose.Size = New-Object System.Drawing.Size(464, 20)
+    $lblPose.Font = $fontMono
+    $telPanel.Controls.Add($lblPose)
+    $script:UI.LblPose = $lblPose
 
-    $script:lblState = New-Object System.Windows.Forms.Label
-    $script:lblState.Location = New-Object System.Drawing.Point(10, 56)
-    $script:lblState.Size = New-Object System.Drawing.Size(540, 22)
-    $script:lblState.Font = $fontMono
-    $telPanel.Controls.Add($script:lblState)
+    $lblState = New-Object System.Windows.Forms.Label
+    $lblState.Location = New-Object System.Drawing.Point(8, 50)
+    $lblState.Size = New-Object System.Drawing.Size(464, 20)
+    $lblState.Font = $fontMono
+    $telPanel.Controls.Add($lblState)
+    $script:UI.LblState = $lblState
 
-    $script:lblToF = New-Object System.Windows.Forms.Label
-    $script:lblToF.Location = New-Object System.Drawing.Point(10, 82)
-    $script:lblToF.Size = New-Object System.Drawing.Size(540, 22)
-    $script:lblToF.Font = $fontMono
-    $telPanel.Controls.Add($script:lblToF)
+    $lblToF = New-Object System.Windows.Forms.Label
+    $lblToF.Location = New-Object System.Drawing.Point(8, 72)
+    $lblToF.Size = New-Object System.Drawing.Size(464, 20)
+    $lblToF.Font = $fontMono
+    $telPanel.Controls.Add($lblToF)
+    $script:UI.LblToF = $lblToF
 
-    $script:lblWheels = New-Object System.Windows.Forms.Label
-    $script:lblWheels.Location = New-Object System.Drawing.Point(10, 108)
-    $script:lblWheels.Size = New-Object System.Drawing.Size(540, 22)
-    $script:lblWheels.Font = $fontMono
-    $telPanel.Controls.Add($script:lblWheels)
+    $lblWheels = New-Object System.Windows.Forms.Label
+    $lblWheels.Location = New-Object System.Drawing.Point(8, 94)
+    $lblWheels.Size = New-Object System.Drawing.Size(464, 20)
+    $lblWheels.Font = $fontMono
+    $telPanel.Controls.Add($lblWheels)
+    $script:UI.LblWheels = $lblWheels
+
+    $lblClearance = New-Object System.Windows.Forms.Label
+    $lblClearance.Location = New-Object System.Drawing.Point(8, 116)
+    $lblClearance.Size = New-Object System.Drawing.Size(464, 20)
+    $lblClearance.Font = $fontMono
+    $lblClearance.ForeColor = $script:Theme.Cyan
+    $telPanel.Controls.Add($lblClearance)
+    $script:UI.LblClearance = $lblClearance
+
+    $lblLegend = New-Object System.Windows.Forms.Label
+    $lblLegend.Text = "Đứt nét xanh: Đường A* dự kiến | Xanh dương: Quỹ đạo xe | Vàng: Điểm qua | Đỏ: Cọc động"
+    $lblLegend.Location = New-Object System.Drawing.Point(8, 142)
+    $lblLegend.Size = New-Object System.Drawing.Size(464, 26)
+    $lblLegend.Font = $fontSmall
+    $lblLegend.ForeColor = $script:Theme.Muted
+    $telPanel.Controls.Add($lblLegend)
 
     # =========================================================================
-    # RIGHT COLUMN (x=584, w=634): BLE Header + 3-Tab Tuner + Buttons + Log
+    # RIGHT COLUMN (x=500, w=550, right=1050 <= 1060): Header + Tabs + Actions + Log
     # =========================================================================
     $hdr = New-Object System.Windows.Forms.Panel
-    $hdr.Location = New-Object System.Drawing.Point(584, 10)
-    $hdr.Size = New-Object System.Drawing.Size(634, 66)
-    $hdr.BackColor = $cPanel
+    $hdr.Location = New-Object System.Drawing.Point(500, 8)
+    $hdr.Size = New-Object System.Drawing.Size(550, 62)
+    $hdr.BackColor = $script:Theme.Panel
     $form.Controls.Add($hdr)
 
     $lblCom = New-Object System.Windows.Forms.Label
     $lblCom.Text = "Cổng HC-05:"
-    $lblCom.Location = New-Object System.Drawing.Point(10, 12)
-    $lblCom.Size = New-Object System.Drawing.Size(90, 22)
+    $lblCom.Location = New-Object System.Drawing.Point(8, 10)
+    $lblCom.Size = New-Object System.Drawing.Size(74, 20)
     $lblCom.Font = $fontBold
     $hdr.Controls.Add($lblCom)
 
-    $script:cmbCom = New-Object System.Windows.Forms.ComboBox
-    $script:cmbCom.Location = New-Object System.Drawing.Point(102, 9)
-    $script:cmbCom.Size = New-Object System.Drawing.Size(220, 24)
-    $script:cmbCom.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
-    $script:cmbCom.BackColor = $cInput
-    $script:cmbCom.ForeColor = $cFg
-    $hdr.Controls.Add($script:cmbCom)
+    $cmbCom = New-Object System.Windows.Forms.ComboBox
+    $cmbCom.Location = New-Object System.Drawing.Point(84, 7)
+    $cmbCom.Size = New-Object System.Drawing.Size(192, 23)
+    $cmbCom.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+    $cmbCom.BackColor = $script:Theme.Input
+    $cmbCom.ForeColor = $script:Theme.Fg
+    $hdr.Controls.Add($cmbCom)
+    $script:UI.CmbCom = $cmbCom
 
     $btnScan = New-Object System.Windows.Forms.Button
     $btnScan.Text = "Quét COM"
-    $btnScan.Location = New-Object System.Drawing.Point(328, 8)
-    $btnScan.Size = New-Object System.Drawing.Size(82, 26)
+    $btnScan.Location = New-Object System.Drawing.Point(282, 6)
+    $btnScan.Size = New-Object System.Drawing.Size(74, 26)
     $btnScan.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnScan.BackColor = $cSlate
-    $btnScan.ForeColor = $cFg
+    $btnScan.BackColor = $script:Theme.Slate
+    $btnScan.ForeColor = $script:Theme.Fg
     $hdr.Controls.Add($btnScan)
+    $script:UI.BtnScan = $btnScan
 
     $btnConn = New-Object System.Windows.Forms.Button
     $btnConn.Text = "Kết nối BLE"
-    $btnConn.Location = New-Object System.Drawing.Point(416, 8)
-    $btnConn.Size = New-Object System.Drawing.Size(102, 26)
+    $btnConn.Location = New-Object System.Drawing.Point(360, 6)
+    $btnConn.Size = New-Object System.Drawing.Size(94, 26)
     $btnConn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnConn.BackColor = $script:cBlue
-    $btnConn.ForeColor = $cFg
+    $btnConn.BackColor = $script:Theme.Blue
+    $btnConn.ForeColor = $script:Theme.Fg
     $btnConn.Font = $fontBold
     $hdr.Controls.Add($btnConn)
+    $script:UI.BtnConn = $btnConn
 
     $btnRead = New-Object System.Windows.Forms.Button
     $btnRead.Text = "Đọc từ xe"
-    $btnRead.Location = New-Object System.Drawing.Point(524, 8)
-    $btnRead.Size = New-Object System.Drawing.Size(100, 26)
+    $btnRead.Location = New-Object System.Drawing.Point(458, 6)
+    $btnRead.Size = New-Object System.Drawing.Size(84, 26)
     $btnRead.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnRead.BackColor = $cTeal
-    $btnRead.ForeColor = $cFg
+    $btnRead.BackColor = $script:Theme.Teal
+    $btnRead.ForeColor = $script:Theme.Fg
     $btnRead.Enabled = $false
     $hdr.Controls.Add($btnRead)
+    $script:UI.BtnRead = $btnRead
 
     $lblStatus = New-Object System.Windows.Forms.Label
-    $lblStatus.Text = "Trạng thái: Offline (nhấn 'Mô phỏng Demo' bên trái để xem thử quỹ đạo)"
-    $lblStatus.Location = New-Object System.Drawing.Point(10, 40)
-    $lblStatus.Size = New-Object System.Drawing.Size(614, 20)
-    $lblStatus.ForeColor = $cCyan
+    $lblStatus.Text = "Trạng thái: Offline (nhấn 'Mô phỏng Demo' bên trái để xem thử quỹ đạo A*)"
+    $lblStatus.Location = New-Object System.Drawing.Point(8, 38)
+    $lblStatus.Size = New-Object System.Drawing.Size(534, 18)
+    $lblStatus.ForeColor = $script:Theme.Cyan
     $hdr.Controls.Add($lblStatus)
+    $script:UI.LblStatus = $lblStatus
 
     # Tabs (17 Parameters)
     $tabs = New-Object System.Windows.Forms.TabControl
-    $tabs.Location = New-Object System.Drawing.Point(584, 84)
-    $tabs.Size = New-Object System.Drawing.Size(634, 315)
+    $tabs.Location = New-Object System.Drawing.Point(500, 76)
+    $tabs.Size = New-Object System.Drawing.Size(550, 304)
     $form.Controls.Add($tabs)
+    $script:UI.Tabs = $tabs
 
     $tabNames = @("1. Vận tốc Ô 1..Ô 5 & Gia tốc", "2. Động cơ PI & Cơ khí", "3. Cảm biến ToF & Bám đường")
     $tabPages = @()
     foreach ($tName in $tabNames) {
         $tp = New-Object System.Windows.Forms.TabPage
         $tp.Text = $tName
-        $tp.BackColor = $cPanel
-        $tp.ForeColor = $cFg
+        $tp.BackColor = $script:Theme.Panel
+        $tp.ForeColor = $script:Theme.Fg
         $tabs.TabPages.Add($tp)
         $tabPages += $tp
     }
 
     $script:numControls = @{}
-    $tabRowY = @(14, 14, 14)
+    $tabRowY = @(8, 8, 8)
 
-    foreach ($spec in $ParamSpecs) {
+    foreach ($spec in $script:ParamSpecs) {
         $tIdx = $spec.Tab
         $tp = $tabPages[$tIdx]
         $y = $tabRowY[$tIdx]
 
         $lblKey = New-Object System.Windows.Forms.Label
         $lblKey.Text = "[$($spec.Key)]"
-        $lblKey.Location = New-Object System.Drawing.Point(10, ($y + 3))
-        $lblKey.Size = New-Object System.Drawing.Size(64, 22)
+        $lblKey.Location = New-Object System.Drawing.Point(6, ($y + 3))
+        $lblKey.Size = New-Object System.Drawing.Size(58, 20)
         $lblKey.Font = $fontMono
-        $lblKey.ForeColor = $cCyan
+        $lblKey.ForeColor = $script:Theme.Cyan
         $tp.Controls.Add($lblKey)
 
         $lblName = New-Object System.Windows.Forms.Label
         $lblName.Text = $spec.Label
-        $lblName.Location = New-Object System.Drawing.Point(76, ($y + 2))
-        $lblName.Size = New-Object System.Drawing.Size(276, 22)
+        $lblName.Location = New-Object System.Drawing.Point(66, ($y + 2))
+        $lblName.Size = New-Object System.Drawing.Size(236, 20)
         $tp.Controls.Add($lblName)
 
         $num = New-Object System.Windows.Forms.NumericUpDown
-        $num.Location = New-Object System.Drawing.Point(358, $y)
-        $num.Size = New-Object System.Drawing.Size(96, 24)
+        $num.Location = New-Object System.Drawing.Point(304, $y)
+        $num.Size = New-Object System.Drawing.Size(82, 22)
         $num.Minimum = [decimal]$spec.Min
         $num.Maximum = [decimal]$spec.Max
         $num.Increment = [decimal]$spec.Inc
         $num.DecimalPlaces = [int]$spec.Dec
-        $num.BackColor = $cInput
-        $num.ForeColor = $cFg
+        $num.BackColor = $script:Theme.Input
+        $num.ForeColor = $script:Theme.Fg
         $num.Font = $fontBold
         if ($InitialValues.Contains($spec.Key)) {
             $initV = [decimal]$InitialValues[$spec.Key]
@@ -438,191 +950,215 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
 
         $lblRange = New-Object System.Windows.Forms.Label
         $lblRange.Text = "[$($spec.Min)..$($spec.Max)] $($spec.Unit)"
-        $lblRange.Location = New-Object System.Drawing.Point(462, ($y + 3))
-        $lblRange.Size = New-Object System.Drawing.Size(156, 22)
-        $lblRange.ForeColor = $cMuted
+        $lblRange.Location = New-Object System.Drawing.Point(392, ($y + 3))
+        $lblRange.Size = New-Object System.Drawing.Size(142, 20)
+        $lblRange.ForeColor = $script:Theme.Muted
         $lblRange.Font = $fontSmall
         $tp.Controls.Add($lblRange)
 
-        $tabRowY[$tIdx] = $y + 30
+        $tabRowY[$tIdx] = $y + 29
     }
 
     # Quick uniform speed row
     $lblAll = New-Object System.Windows.Forms.Label
     $lblAll.Text = "Đặt nhanh chung cả 5 ô (V1..V5):"
-    $lblAll.Location = New-Object System.Drawing.Point(76, 263)
-    $lblAll.Size = New-Object System.Drawing.Size(260, 22)
-    $lblAll.ForeColor = $cCyan
+    $lblAll.Location = New-Object System.Drawing.Point(66, 245)
+    $lblAll.Size = New-Object System.Drawing.Size(232, 20)
+    $lblAll.ForeColor = $script:Theme.Cyan
     $lblAll.Font = $fontBold
     $tabPages[0].Controls.Add($lblAll)
 
     $numAll = New-Object System.Windows.Forms.NumericUpDown
-    $numAll.Location = New-Object System.Drawing.Point(358, 260)
-    $numAll.Size = New-Object System.Drawing.Size(96, 24)
+    $numAll.Location = New-Object System.Drawing.Point(304, 242)
+    $numAll.Size = New-Object System.Drawing.Size(82, 22)
     $numAll.Minimum = [decimal]10.0
     $numAll.Maximum = [decimal]30.0
     $numAll.Increment = [decimal]0.5
     $numAll.DecimalPlaces = 1
     $numAll.Value = [decimal]20.0
-    $numAll.BackColor = $cInput
-    $numAll.ForeColor = $cFg
+    $numAll.BackColor = $script:Theme.Input
+    $numAll.ForeColor = $script:Theme.Fg
     $tabPages[0].Controls.Add($numAll)
+    $script:UI.NumAll = $numAll
 
     $btnApplyAll = New-Object System.Windows.Forms.Button
     $btnApplyAll.Text = "Áp cho 5 ô"
-    $btnApplyAll.Location = New-Object System.Drawing.Point(462, 259)
-    $btnApplyAll.Size = New-Object System.Drawing.Size(110, 26)
+    $btnApplyAll.Location = New-Object System.Drawing.Point(392, 241)
+    $btnApplyAll.Size = New-Object System.Drawing.Size(102, 24)
     $btnApplyAll.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnApplyAll.BackColor = $script:cBlue
-    $btnApplyAll.ForeColor = $cFg
+    $btnApplyAll.BackColor = $script:Theme.Blue
+    $btnApplyAll.ForeColor = $script:Theme.Fg
     $tabPages[0].Controls.Add($btnApplyAll)
+    $script:UI.BtnApplyAll = $btnApplyAll
 
     # Action Panel
     $actPanel = New-Object System.Windows.Forms.Panel
-    $actPanel.Location = New-Object System.Drawing.Point(584, 405)
-    $actPanel.Size = New-Object System.Drawing.Size(634, 74)
-    $actPanel.BackColor = $cPanel
+    $actPanel.Location = New-Object System.Drawing.Point(500, 386)
+    $actPanel.Size = New-Object System.Drawing.Size(550, 70)
+    $actPanel.BackColor = $script:Theme.Panel
     $form.Controls.Add($actPanel)
 
     $btnSendLive = New-Object System.Windows.Forms.Button
     $btnSendLive.Text = "Gửi LIVE Bluetooth"
-    $btnSendLive.Location = New-Object System.Drawing.Point(8, 8)
-    $btnSendLive.Size = New-Object System.Drawing.Size(150, 28)
+    $btnSendLive.Location = New-Object System.Drawing.Point(6, 6)
+    $btnSendLive.Size = New-Object System.Drawing.Size(132, 27)
     $btnSendLive.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnSendLive.BackColor = $script:cBlue
-    $btnSendLive.ForeColor = $cFg
+    $btnSendLive.BackColor = $script:Theme.Blue
+    $btnSendLive.ForeColor = $script:Theme.Fg
     $btnSendLive.Font = $fontBold
     $actPanel.Controls.Add($btnSendLive)
+    $script:UI.BtnSendLive = $btnSendLive
 
     $btnSaveFlash = New-Object System.Windows.Forms.Button
     $btnSaveFlash.Text = "Lưu Flash (CFG:SAVE)"
-    $btnSaveFlash.Location = New-Object System.Drawing.Point(164, 8)
-    $btnSaveFlash.Size = New-Object System.Drawing.Size(164, 28)
+    $btnSaveFlash.Location = New-Object System.Drawing.Point(142, 6)
+    $btnSaveFlash.Size = New-Object System.Drawing.Size(138, 27)
     $btnSaveFlash.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnSaveFlash.BackColor = $cGreen
-    $btnSaveFlash.ForeColor = $cFg
+    $btnSaveFlash.BackColor = $script:Theme.Green
+    $btnSaveFlash.ForeColor = $script:Theme.Fg
     $btnSaveFlash.Font = $fontBold
     $actPanel.Controls.Add($btnSaveFlash)
+    $script:UI.BtnSaveFlash = $btnSaveFlash
 
     $btnSaveCode = New-Object System.Windows.Forms.Button
     $btnSaveCode.Text = "Lưu Code (.h)"
-    $btnSaveCode.Location = New-Object System.Drawing.Point(334, 8)
-    $btnSaveCode.Size = New-Object System.Drawing.Size(142, 28)
+    $btnSaveCode.Location = New-Object System.Drawing.Point(284, 6)
+    $btnSaveCode.Size = New-Object System.Drawing.Size(124, 27)
     $btnSaveCode.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnSaveCode.BackColor = $cAmber
-    $btnSaveCode.ForeColor = $cFg
+    $btnSaveCode.BackColor = $script:Theme.Amber
+    $btnSaveCode.ForeColor = $script:Theme.Fg
     $btnSaveCode.Font = $fontBold
     $actPanel.Controls.Add($btnSaveCode)
+    $script:UI.BtnSaveCode = $btnSaveCode
 
     $btnResetDef = New-Object System.Windows.Forms.Button
     $btnResetDef.Text = "Khôi phục mặc định"
-    $btnResetDef.Location = New-Object System.Drawing.Point(482, 8)
-    $btnResetDef.Size = New-Object System.Drawing.Size(144, 28)
+    $btnResetDef.Location = New-Object System.Drawing.Point(412, 6)
+    $btnResetDef.Size = New-Object System.Drawing.Size(132, 27)
     $btnResetDef.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnResetDef.BackColor = $cSlate
-    $btnResetDef.ForeColor = $cFg
+    $btnResetDef.BackColor = $script:Theme.Slate
+    $btnResetDef.ForeColor = $script:Theme.Fg
     $actPanel.Controls.Add($btnResetDef)
+    $script:UI.BtnResetDef = $btnResetDef
 
     $btnRunAuto = New-Object System.Windows.Forms.Button
     $btnRunAuto.Text = "Chạy tự hành (RUN:2)"
-    $btnRunAuto.Location = New-Object System.Drawing.Point(8, 41)
-    $btnRunAuto.Size = New-Object System.Drawing.Size(150, 26)
+    $btnRunAuto.Location = New-Object System.Drawing.Point(6, 38)
+    $btnRunAuto.Size = New-Object System.Drawing.Size(132, 26)
     $btnRunAuto.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnRunAuto.BackColor = $cTeal
-    $btnRunAuto.ForeColor = $cFg
+    $btnRunAuto.BackColor = $script:Theme.Teal
+    $btnRunAuto.ForeColor = $script:Theme.Fg
     $actPanel.Controls.Add($btnRunAuto)
+    $script:UI.BtnRunAuto = $btnRunAuto
 
     $btnStop = New-Object System.Windows.Forms.Button
     $btnStop.Text = "DỪNG KHẨN (STOP)"
-    $btnStop.Location = New-Object System.Drawing.Point(164, 41)
-    $btnStop.Size = New-Object System.Drawing.Size(146, 26)
+    $btnStop.Location = New-Object System.Drawing.Point(142, 38)
+    $btnStop.Size = New-Object System.Drawing.Size(138, 26)
     $btnStop.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnStop.BackColor = $cRed
-    $btnStop.ForeColor = $cFg
+    $btnStop.BackColor = $script:Theme.Red
+    $btnStop.ForeColor = $script:Theme.Fg
     $btnStop.Font = $fontBold
     $actPanel.Controls.Add($btnStop)
+    $script:UI.BtnStop = $btnStop
 
     $btnZero = New-Object System.Windows.Forms.Button
     $btnZero.Text = "Reset tọa độ (ZERO)"
-    $btnZero.Location = New-Object System.Drawing.Point(316, 41)
-    $btnZero.Size = New-Object System.Drawing.Size(144, 26)
+    $btnZero.Location = New-Object System.Drawing.Point(284, 38)
+    $btnZero.Size = New-Object System.Drawing.Size(124, 26)
     $btnZero.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnZero.BackColor = $cSlate
-    $btnZero.ForeColor = $cFg
+    $btnZero.BackColor = $script:Theme.Slate
+    $btnZero.ForeColor = $script:Theme.Fg
     $actPanel.Controls.Add($btnZero)
+    $script:UI.BtnZero = $btnZero
 
     $btnFlashStlink = New-Object System.Windows.Forms.Button
     $btnFlashStlink.Text = "Build && Nạp ST-Link"
-    $btnFlashStlink.Location = New-Object System.Drawing.Point(466, 41)
-    $btnFlashStlink.Size = New-Object System.Drawing.Size(160, 26)
+    $btnFlashStlink.Location = New-Object System.Drawing.Point(412, 38)
+    $btnFlashStlink.Size = New-Object System.Drawing.Size(132, 26)
     $btnFlashStlink.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-    $btnFlashStlink.BackColor = $cSlate
-    $btnFlashStlink.ForeColor = $cCyan
+    $btnFlashStlink.BackColor = $script:Theme.Slate
+    $btnFlashStlink.ForeColor = $script:Theme.Cyan
     $actPanel.Controls.Add($btnFlashStlink)
+    $script:UI.BtnFlashStlink = $btnFlashStlink
 
     # Log Box
-    $script:txtLog = New-Object System.Windows.Forms.TextBox
-    $script:txtLog.Location = New-Object System.Drawing.Point(584, 486)
-    $script:txtLog.Size = New-Object System.Drawing.Size(634, 124)
-    $script:txtLog.Multiline = $true
-    $script:txtLog.ReadOnly = $true
-    $script:txtLog.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
-    $script:txtLog.BackColor = $cInput
-    $script:txtLog.ForeColor = $cFg
-    $script:txtLog.Font = $fontMono
-    $form.Controls.Add($script:txtLog)
+    $txtLog = New-Object System.Windows.Forms.TextBox
+    $txtLog.Location = New-Object System.Drawing.Point(500, 462)
+    $txtLog.Size = New-Object System.Drawing.Size(550, 118)
+    $txtLog.Multiline = $true
+    $txtLog.ReadOnly = $true
+    $txtLog.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
+    $txtLog.BackColor = $script:Theme.Input
+    $txtLog.ForeColor = $script:Theme.Fg
+    $txtLog.Font = $fontMono
+    $form.Controls.Add($txtLog)
+    $script:UI.TxtLog = $txtLog
 
     # =========================================================================
-    # LIVE TELEMETRY, MAP STATE & DEMO SIMULATOR STATE
+    # LIVE TELEMETRY, C-SPACE A* PLANNER & DEMO STATE (ALL IN $script: SCOPE)
     # =========================================================================
     $script:serialPort   = $null
     $script:rxBuffer     = ""
     $script:trail        = New-Object System.Collections.Generic.List[object]
     $script:breadcrumbs  = New-Object System.Collections.Generic.List[object]
     $script:dynObs       = New-Object System.Collections.Generic.List[object]
+    $script:plannedPath  = $null
     $script:demoActive   = $false
     $script:demoHasObs   = $false
-    $script:demoWpIdx    = 1
     $script:demoObsAdded = $false
+    $script:demoWpIdx    = 1
+    $script:demoObsTarget = @{ X=145.0; Y=75.0 }
     $script:liveState    = @{
-        X = 30.0; Y = -6.0; Heading = 90.0; Vbat = 0.0; Mode = 2
+        X = 30.0; Y = -6.0; Heading = 90.0; Vbat = 7.98; Mode = 2
         Dl = 8190; Df = 8190; Dr = 8190
         VlExp = 0.0; VrExp = 0.0; VlReal = 0.0; VrReal = 0.0
         FsmState = 0; Score = 0
+        MinCenterClr = 999.0; MinChassisClr = 999.0
     }
 
-    $script:writeLog = {
+    # Precompute clean A* path at startup so planned route renders immediately
+    [CheesyAStar]::ResetCSpace()
+    $script:plannedPath = [CheesyAStar]::PlanPathToFinish(30.0, -6.0, $false)
+    $script:demoObsTarget = Choose-DemoO4Obstacle $script:plannedPath
+
+    $script:Fn.WriteLog = {
         param([string]$msg)
         $ts = (Get-Date).ToString("HH:mm:ss")
-        $script:txtLog.AppendText("[$ts] $msg`r`n")
+        $script:UI.TxtLog.AppendText("[$ts] $msg`r`n")
     }
 
-    $script:updateTelLabels = {
+    $script:Fn.UpdateTelLabels = {
         $st = $script:liveState
-        $fsmTxt = if ($FsmStateNames.ContainsKey([int]$st.FsmState)) { $FsmStateNames[[int]$st.FsmState] } else { "STATE_$($st.FsmState)" }
-        $script:lblPose.Text   = ("Tọa độ EKF: X={0,6:F1} cm | Y={1,6:F1} cm | Yaw={2,6:F1}° | Điểm đi qua: {3}" -f $st.X, $st.Y, $st.Heading, $script:breadcrumbs.Count)
-        $script:lblState.Text  = ("FSM: {0,-22} | Điểm thi: {1,3} | Pin: {2:F2} V" -f $fsmTxt, $st.Score, $st.Vbat)
+        $fsmTxt = if ($script:FsmStateNames.ContainsKey([int]$st.FsmState)) { $script:FsmStateNames[[int]$st.FsmState] } else { "STATE_$($st.FsmState)" }
+        $script:UI.LblPose.Text   = ("Tọa độ EKF: X={0,5:F1} cm | Y={1,5:F1} cm | Yaw={2,6:F1}° | Điểm: {3}" -f $st.X, $st.Y, $st.Heading, $script:breadcrumbs.Count)
+        $script:UI.LblState.Text  = ("FSM: {0,-21} | Điểm: {1,3} | Pin: {2:F2} V" -f $fsmTxt, $st.Score, $st.Vbat)
         $dlTxt = if ($st.Dl -ge 8190) { "---" } else { "$($st.Dl)" }
         $dfTxt = if ($st.Df -ge 8190) { "---" } else { "$($st.Df)" }
         $drTxt = if ($st.Dr -ge 8190) { "---" } else { "$($st.Dr)" }
-        $script:lblToF.Text    = ("3× VL53L0X (mm): Trái(+45°)={0,-4} | Trước(0°)={1,-4} | Phải(-45°)={2,-4}" -f $dlTxt, $dfTxt, $drTxt)
-        $script:lblWheels.Text = ("Bánh xe (cm/s): Trái {0,4:F1}/{1,4:F1} | Phải {2,4:F1}/{3,4:F1} (Đặt/Thực)" -f $st.VlExp, $st.VlReal, $st.VrExp, $st.VrReal)
+        $script:UI.LblToF.Text    = ("3× VL53L0X (mm): Trái(+45°)={0,-4} | Trước={1,-4} | Phải(-45°)={2,-4}" -f $dlTxt, $dfTxt, $drTxt)
+        $script:UI.LblWheels.Text = ("Bánh (cm/s): Trái {0,4:F1}/{1,4:F1} | Phải {2,4:F1}/{3,4:F1} (Đặt/Thực)" -f $st.VlExp, $st.VlReal, $st.VrExp, $st.VrReal)
+
+        $wpCnt = if ($null -ne $script:plannedPath) { $script:plannedPath.Count } else { 0 }
+        $cenS = if ($st.MinCenterClr -gt 900) { "---" } else { ("{0:F2}" -f $st.MinCenterClr) }
+        $chaS = if ($st.MinChassisClr -gt 900) { "---" } else { ("{0:F2}" -f $st.MinChassisClr) }
+        $script:UI.LblClearance.Text = ("A* C-Space: {0} nút | Khoảng hở min: Tâm={1} cm, Thân={2} cm" -f $wpCnt, $cenS, $chaS)
     }
 
-    $script:drawArenaMap = {
+    $script:Fn.DrawArenaMap = {
         $g = [System.Drawing.Graphics]::FromImage($script:mapBmp)
         try {
             $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
             $g.Clear([System.Drawing.Color]::FromArgb(13, 20, 34))
 
-            $scale = [math]::Min(($script:mapW - 32.0) / 192.0, ($script:mapH - 32.0) / 140.0)
+            $scale = [math]::Min(($script:mapW - 24.0) / 192.0, ($script:mapH - 24.0) / 140.0)
             $offX  = ($script:mapW - 192.0 * $scale) * 0.5
             $offY  = ($script:mapH - 140.0 * $scale) * 0.5
 
             $wx = { param([double]$x) return [float]($offX + ($x + 6.0) * $scale) }
             $wy = { param([double]$y) return [float]($offY + (126.0 - $y) * $scale) }
 
-            # O 3..O 5 ToF Scan Zone tint (x >= SCANX, y >= 0)
+            # O 3..O 5 ToF Scan Zone tint
             $scanX = [double]$script:numControls["SCANX"].Value
             $bScan = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(24, 16, 185, 129))
             $g.FillRectangle($bScan, (& $wx $scanX), (& $wy 120.0), [float]((180.0 - $scanX) * $scale), [float](120.0 * $scale))
@@ -640,7 +1176,7 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
             }
             $pGrid.Dispose()
 
-            # Segment dividers & labels (O 1..O 5)
+            # Zone dividers & labels
             $pDash = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(71, 85, 105), 1.0)
             $pDash.DashStyle = [System.Drawing.Drawing2D.DashStyle]::Dash
             $g.DrawLine($pDash, (& $wx 60.0), (& $wy 120.0), (& $wx 60.0), (& $wy 60.0))
@@ -649,7 +1185,7 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
             $g.DrawLine($pDash, (& $wx 120.0), (& $wy 60.0), (& $wx 180.0), (& $wy 60.0))
             $pDash.Dispose()
 
-            $fZone = New-Object System.Drawing.Font("Segoe UI", 8.0, [System.Drawing.FontStyle]::Bold)
+            $fZone = New-Object System.Drawing.Font("Segoe UI", 7.5, [System.Drawing.FontStyle]::Bold)
             $bZone = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(100, 148, 163, 184))
             $g.DrawString("Ô 1", $fZone, $bZone, (& $wx 22.0), (& $wy 12.0))
             $g.DrawString("Ô 2", $fZone, $bZone, (& $wx 22.0), (& $wy 116.0))
@@ -666,16 +1202,16 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
             $g.DrawLine($pFin, (& $wx 120.0), (& $wy 0.0), (& $wx 180.0), (& $wy 0.0))
             $pFin.Dispose()
 
-            # Outer walls (bottom open at O1 & O5)
-            $pWall = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(203, 213, 225), 2.2)
+            # Outer walls
+            $pWall = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(203, 213, 225), 2.0)
             $g.DrawLine($pWall, (& $wx 0.0), (& $wy 0.0), (& $wx 0.0), (& $wy 120.0))
             $g.DrawLine($pWall, (& $wx 0.0), (& $wy 120.0), (& $wx 180.0), (& $wy 120.0))
             $g.DrawLine($pWall, (& $wx 180.0), (& $wy 120.0), (& $wx 180.0), (& $wy 0.0))
             $pWall.Dispose()
 
-            # Forbidden U-block [60..120] x [0..60]
+            # Forbidden U-block
             $bU = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(45, 55, 72))
-            $pU = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(148, 163, 184), 1.8)
+            $pU = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(148, 163, 184), 1.6)
             $ux = & $wx 60.0; $uy = & $wy 60.0; $uw = [float](60.0 * $scale); $uh = [float](60.0 * $scale)
             $g.FillRectangle($bU, $ux, $uy, $uw, $uh)
             $g.DrawRectangle($pU, $ux, $uy, $uw, $uh)
@@ -683,31 +1219,54 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
 
             # 17 static pillars (10x10 cm)
             $bObs  = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(220, 71, 85, 105))
-            $pObs  = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(148, 163, 184), 1.2)
+            $pObs  = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(148, 163, 184), 1.1)
             $bLbl  = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(226, 232, 240))
-            $fObs  = New-Object System.Drawing.Font("Consolas", 6.5)
+            $fObs  = New-Object System.Drawing.Font("Consolas", 6.2)
             $boxSz = [float](10.0 * $scale)
-            foreach ($p in $StaticPillars) {
+            foreach ($p in $script:StaticPillars) {
                 $bx = & $wx ($p.X - 5.0)
                 $by = & $wy ($p.Y + 5.0)
                 $g.FillRectangle($bObs, $bx, $by, $boxSz, $boxSz)
                 $g.DrawRectangle($pObs, $bx, $by, $boxSz, $boxSz)
-                $g.DrawString($p.Name, $fObs, $bLbl, ($bx + 2.0), ($by + 4.0))
+                $g.DrawString($p.Name, $fObs, $bLbl, ($bx + 1.5), ($by + 3.0))
             }
             $bObs.Dispose(); $pObs.Dispose(); $bLbl.Dispose()
 
+            # Pending demo obstacle preview (dashed faint outline before ToF detects it)
+            if ($script:demoHasObs -and -not $script:demoObsAdded) {
+                $pPend = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(160, 248, 113, 113), 1.4)
+                $pPend.DashStyle = [System.Drawing.Drawing2D.DashStyle]::Dash
+                $pxO = & $wx ($script:demoObsTarget.X - 5.0)
+                $pyO = & $wy ($script:demoObsTarget.Y + 5.0)
+                $g.DrawRectangle($pPend, $pxO, $pyO, $boxSz, $boxSz)
+                $pPend.Dispose()
+            }
+
             # Detected Dynamic Obstacles
-            $bDyn = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(190, 239, 68, 68))
-            $pDyn = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(254, 202, 202), 1.8)
+            $bDyn = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(195, 239, 68, 68))
+            $pDyn = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(254, 202, 202), 1.6)
             $bDynTxt = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::White)
             foreach ($d in $script:dynObs) {
                 $dx = & $wx ($d.X - 5.0)
                 $dy = & $wy ($d.Y + 5.0)
                 $g.FillRectangle($bDyn, $dx, $dy, $boxSz, $boxSz)
                 $g.DrawRectangle($pDyn, $dx, $dy, $boxSz, $boxSz)
-                $g.DrawString("DYN", $fObs, $bDynTxt, ($dx + 1.0), ($dy + 4.0))
+                $g.DrawString("DYN", $fObs, $bDynTxt, ($dx + 1.0), ($dy + 3.0))
             }
             $bDyn.Dispose(); $pDyn.Dispose(); $bDynTxt.Dispose(); $fObs.Dispose(); $fZone.Dispose()
+
+            # Planned A* route preview (subtle dashed emerald line)
+            if ($null -ne $script:plannedPath -and $script:plannedPath.Count -ge 2) {
+                $rPts = New-Object 'System.Drawing.PointF[]' $script:plannedPath.Count
+                for ($i = 0; $i -lt $script:plannedPath.Count; $i++) {
+                    $wp = $script:plannedPath[$i]
+                    $rPts[$i] = New-Object System.Drawing.PointF((& $wx $wp[0]), (& $wy $wp[1]))
+                }
+                $pPlan = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(150, 52, 211, 153), 1.5)
+                $pPlan.DashStyle = [System.Drawing.Drawing2D.DashStyle]::Dash
+                $g.DrawLines($pPlan, $rPts)
+                $pPlan.Dispose()
+            }
 
             # Trajectory polyline
             if ($script:trail.Count -ge 2) {
@@ -716,21 +1275,21 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
                     $pt = $script:trail[$i]
                     $pts[$i] = New-Object System.Drawing.PointF((& $wx $pt.X), (& $wy $pt.Y))
                 }
-                $pTrail = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(56, 189, 248), 2.3)
+                $pTrail = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(56, 189, 248), 2.2)
                 $g.DrawLines($pTrail, $pts)
                 $pTrail.Dispose()
             }
 
-            # Breadcrumb visited dots
+            # Breadcrumb dots
             $bDot = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(250, 204, 21))
             foreach ($bc in $script:breadcrumbs) {
                 $px = & $wx $bc.X
                 $py = & $wy $bc.Y
-                $g.FillEllipse($bDot, ($px - 2.2), ($py - 2.2), 4.4, 4.4)
+                $g.FillEllipse($bDot, ($px - 2.0), ($py - 2.0), 4.0, 4.0)
             }
             $bDot.Dispose()
 
-            # Live 3x VL53L0X laser rays + Robot footprint (11.46 x 10.0 cm)
+            # 3x VL53L0X laser rays + Robot footprint (11.46 x 10.0 cm)
             $rx = [double]$script:liveState.X
             $ry = [double]$script:liveState.Y
             $th = [double]$script:liveState.Heading * [math]::PI / 180.0
@@ -752,41 +1311,49 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
                     $col = if ($dCm -lt 12.0) { [System.Drawing.Color]::FromArgb(239, 68, 68) }
                            elseif ($dCm -le $tofMaxCm) { [System.Drawing.Color]::FromArgb(245, 158, 11) }
                            else { [System.Drawing.Color]::FromArgb(34, 197, 94) }
-                    $pRay = New-Object System.Drawing.Pen($col, 1.6)
+                    $pRay = New-Object System.Drawing.Pen($col, 1.4)
                     $g.DrawLine($pRay, (& $wx $sx), (& $wy $sy), (& $wx $ex), (& $wy $ey))
                     $pRay.Dispose()
                 }
             }
 
-            # Robot rotated chassis box (hl=5.0cm, hw=5.73cm)
             $c = [math]::Cos($th); $s = [math]::Sin($th)
             $corners = @(@(5.0, 5.73), @(5.0, -5.73), @(-5.0, -5.73), @(-5.0, 5.73))
-            $rPts = New-Object 'System.Drawing.PointF[]' 4
+            $robPts = New-Object 'System.Drawing.PointF[]' 4
             for ($i = 0; $i -lt 4; $i++) {
                 $lx = $corners[$i][0]; $ly = $corners[$i][1]
                 $pxW = $rx + $lx * $c - $ly * $s
                 $pyW = $ry + $lx * $s + $ly * $c
-                $rPts[$i] = New-Object System.Drawing.PointF((& $wx $pxW), (& $wy $pyW))
+                $robPts[$i] = New-Object System.Drawing.PointF((& $wx $pxW), (& $wy $pyW))
             }
             $bRob = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(220, 14, 165, 233))
-            $pRob = New-Object System.Drawing.Pen([System.Drawing.Color]::White, 1.8)
-            $g.FillPolygon($bRob, $rPts)
-            $g.DrawPolygon($pRob, $rPts)
+            $pRob = New-Object System.Drawing.Pen([System.Drawing.Color]::White, 1.6)
+            $g.FillPolygon($bRob, $robPts)
+            $g.DrawPolygon($pRob, $robPts)
             $bRob.Dispose(); $pRob.Dispose()
 
-            # Heading arrow
-            $ax = $rx + 8.5 * $c; $ay = $ry + 8.5 * $s
-            $pHead = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(250, 204, 21), 2.4)
+            $ax = $rx + 8.0 * $c; $ay = $ry + 8.0 * $s
+            $pHead = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(250, 204, 21), 2.2)
             $g.DrawLine($pHead, (& $wx $rx), (& $wy $ry), (& $wx $ax), (& $wy $ay))
             $pHead.Dispose()
         } finally {
             $g.Dispose()
         }
-        $script:picMap.Invalidate()
+        $script:UI.PicMap.Invalidate()
     }
 
-    $script:pushTrailPoint = {
+    $script:Fn.PushTrailPoint = {
         param([double]$x, [double]$y)
+        $thRad = [double]$script:liveState.Heading * [math]::PI / 180.0
+        $dXs = [double[]]@(); $dYs = [double[]]@()
+        if ($script:dynObs.Count -gt 0) {
+            $dXs = [double[]]($script:dynObs | ForEach-Object { [double]$_.X })
+            $dYs = [double[]]($script:dynObs | ForEach-Object { [double]$_.Y })
+        }
+        $clr = [CheesyAStar]::ComputeClearances($x, $y, $thRad, $dXs, $dYs)
+        if ($clr[0] -lt $script:liveState.MinCenterClr)  { $script:liveState.MinCenterClr  = $clr[0] }
+        if ($clr[1] -lt $script:liveState.MinChassisClr) { $script:liveState.MinChassisClr = $clr[1] }
+
         if ($script:trail.Count -eq 0) {
             $script:trail.Add([PSCustomObject]@{ X=$x; Y=$y })
             $script:breadcrumbs.Add([PSCustomObject]@{ X=$x; Y=$y })
@@ -804,7 +1371,7 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
         }
     }
 
-    $script:handleIncomingLine = {
+    $script:Fn.HandleIncomingLine = {
         param([string]$line)
         $inv = [System.Globalization.CultureInfo]::InvariantCulture
         if ($line.StartsWith('$TEL,')) {
@@ -823,17 +1390,17 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
                 $script:liveState.VlExp   = [double]::Parse($f[10], $inv) * $wheelR
                 $script:liveState.VrReal  = [double]::Parse($f[11], $inv) * $wheelR
                 $script:liveState.VlReal  = [double]::Parse($f[12], $inv) * $wheelR
-                & $script:pushTrailPoint $script:liveState.X $script:liveState.Y
-                & $script:updateTelLabels
-                & $script:drawArenaMap
+                & $script:Fn.PushTrailPoint $script:liveState.X $script:liveState.Y
+                & $script:Fn.UpdateTelLabels
+                & $script:Fn.DrawArenaMap
             }
         } elseif ($line.StartsWith('$EVT,FSM,')) {
             $f = $line.Split(',')
             if ($f.Length -ge 4) {
                 $script:liveState.FsmState = [int]$f[2]
                 $script:liveState.Score    = [int]$f[3]
-                & $script:updateTelLabels
-                & $script:writeLog "FSM -> State=$($f[2]), Score=$($f[3])"
+                & $script:Fn.UpdateTelLabels
+                & $script:Fn.WriteLog "FSM -> State=$($f[2]), Score=$($f[3])"
             }
         } elseif ($line.StartsWith('$EVT,OBS,')) {
             $f = $line.Split(',')
@@ -841,19 +1408,18 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
                 $ox = [double]::Parse($f[2], $inv)
                 $oy = [double]::Parse($f[3], $inv)
                 $script:dynObs.Add([PSCustomObject]@{ X=$ox; Y=$oy })
-                & $script:drawArenaMap
-                & $script:writeLog "Phát hiện vật cản động tại ($ox, $oy) cm!"
+                & $script:Fn.DrawArenaMap
+                & $script:Fn.WriteLog "Phát hiện vật cản động tại ($ox, $oy) cm!"
             }
         } elseif ($line.StartsWith('$EVT,')) {
-            & $script:writeLog $line
+            & $script:Fn.WriteLog $line
         }
     }
 
-    # --- Serial & Demo Helpers ---
     $script:uiTimer = New-Object System.Windows.Forms.Timer
     $script:uiTimer.Interval = 50
 
-    $script:sendAndWaitAck = {
+    $script:Fn.SendAndWaitAck = {
         param([string]$cmd, [string]$ackPrefix, [int]$timeoutMs = 1500)
         $script:uiTimer.Stop()
         try {
@@ -875,7 +1441,7 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
                         if ($ln.StartsWith($ackPrefix) -or $ln.StartsWith('$ERR,')) {
                             return @{ Ok=$ln.StartsWith($ackPrefix); Reply=$ln }
                         }
-                        & $script:handleIncomingLine $ln
+                        & $script:Fn.HandleIncomingLine $ln
                     }
                 }
                 [System.Windows.Forms.Application]::DoEvents()
@@ -887,7 +1453,7 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
         }
     }
 
-    $script:fetchBleCfg = {
+    $script:Fn.FetchBleCfg = {
         param([System.Collections.IDictionary]$target)
         $script:uiTimer.Stop()
         try {
@@ -911,7 +1477,7 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
                         } elseif ($ln -eq '$CFG,END') {
                             return $true
                         } else {
-                            & $script:handleIncomingLine $ln
+                            & $script:Fn.HandleIncomingLine $ln
                         }
                     }
                 }
@@ -924,8 +1490,8 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
         }
     }
 
-    $refreshComList = {
-        $script:cmbCom.Items.Clear()
+    $script:Fn.RefreshComList = {
+        $script:UI.CmbCom.Items.Clear()
         $ports = [System.IO.Ports.SerialPort]::GetPortNames() | Sort-Object
         $pnpMap = @{}
         try {
@@ -935,19 +1501,19 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
         } catch {}
         foreach ($p in $ports) {
             $desc = if ($pnpMap.ContainsKey($p)) { $pnpMap[$p] } else { $p }
-            [void]$script:cmbCom.Items.Add("$p - $desc")
+            [void]$script:UI.CmbCom.Items.Add("$p - $desc")
         }
-        if ($script:cmbCom.Items.Count -gt 0) {
-            $script:cmbCom.SelectedIndex = 0
+        if ($script:UI.CmbCom.Items.Count -gt 0) {
+            $script:UI.CmbCom.SelectedIndex = 0
         } else {
-            [void]$script:cmbCom.Items.Add("(Chưa thấy cổng COM Bluetooth)")
-            $script:cmbCom.SelectedIndex = 0
+            [void]$script:UI.CmbCom.Items.Add("(Chưa thấy cổng COM Bluetooth)")
+            $script:UI.CmbCom.SelectedIndex = 0
         }
     }
 
-    $syncValuesToUi = {
+    $script:Fn.SyncValuesToUi = {
         param([System.Collections.IDictionary]$vals)
-        foreach ($spec in $ParamSpecs) {
+        foreach ($spec in $script:ParamSpecs) {
             if ($vals.Contains($spec.Key)) {
                 $num = $script:numControls[$spec.Key]
                 $v = [decimal]$vals[$spec.Key]
@@ -958,8 +1524,117 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
         }
     }
 
+    $script:Fn.StartDemoPlan = {
+        $script:trail.Clear()
+        $script:breadcrumbs.Clear()
+        $script:dynObs.Clear()
+        [CheesyAStar]::ResetCSpace()
+        $script:plannedPath = [CheesyAStar]::PlanPathToFinish(30.0, -6.0, $false)
+        $script:demoObsTarget = Choose-DemoO4Obstacle $script:plannedPath
+        $script:demoWpIdx = 1
+        $script:demoObsAdded = $false
+        $script:liveState.X = 30.0
+        $script:liveState.Y = -6.0
+        $script:liveState.Heading = 90.0
+        $script:liveState.FsmState = 1
+        $script:liveState.Score = 0
+        $script:liveState.MinCenterClr = 999.0
+        $script:liveState.MinChassisClr = 999.0
+        $script:liveState.Dl = 8190; $script:liveState.Df = 8190; $script:liveState.Dr = 8190
+        & $script:Fn.PushTrailPoint 30.0 -6.0
+        & $script:Fn.UpdateTelLabels
+        & $script:Fn.DrawArenaMap
+    }
+
+    $script:Fn.StepDemoTick = {
+        if (-not $script:demoActive) { return }
+        if ($null -eq $script:plannedPath -or $script:demoWpIdx -ge $script:plannedPath.Count) {
+            $script:demoActive = $false
+            $script:liveState.FsmState = 4
+            $script:liveState.Score    = if ($script:demoObsAdded) { 272 } else { 257 }
+            $script:liveState.VlExp = 0; $script:liveState.VrExp = 0
+            $script:liveState.VlReal = 0; $script:liveState.VrReal = 0
+            $script:UI.BtnDemo.Text = "Mô phỏng Demo"
+            $script:UI.BtnDemo.BackColor = $script:Theme.Blue
+            & $script:Fn.UpdateTelLabels
+            & $script:Fn.DrawArenaMap
+            & $script:Fn.WriteLog ("Demo hoàn thành Ô 5! (Khoảng hở min: Tâm={0:F2} cm, Thân={1:F2} cm)" -f $script:liveState.MinCenterClr, $script:liveState.MinChassisClr)
+            return
+        }
+
+        $tx = [double]$script:plannedPath[$script:demoWpIdx][0]
+        $ty = [double]$script:plannedPath[$script:demoWpIdx][1]
+        $rx = [double]$script:liveState.X
+        $ry = [double]$script:liveState.Y
+        $dx = $tx - $rx; $dy = $ty - $ry
+        $dist = [math]::Sqrt($dx * $dx + $dy * $dy)
+
+        $segKey = if ($rx -lt 60.0) { if ($ry -lt 60.0) { "V1" } else { "V2" } }
+                  elseif ($rx -lt 120.0) { "V3" }
+                  else { if ($ry -ge 60.0) { "V4" } else { "V5" } }
+        $vDemo = [double]$script:numControls[$segKey].Value
+        $vMax  = [double]$script:numControls["VMAX"].Value
+        if ($vDemo -gt $vMax) { $vDemo = $vMax }
+        if ($script:demoObsAdded -and $rx -ge 60.0) {
+            $vDet = [double]$script:numControls["VDET"].Value
+            if ($vDemo -gt $vDet) { $vDemo = $vDet }
+        }
+
+        $stepCm = $vDemo * 0.05
+        $angRad = if ($dist -gt 1e-4) { [math]::Atan2($dy, $dx) } else { [double]$script:liveState.Heading * [math]::PI / 180.0 }
+        if ($dist -le $stepCm) {
+            $rx = $tx; $ry = $ty
+            $script:demoWpIdx++
+        } else {
+            $rx += $stepCm * [math]::Cos($angRad)
+            $ry += $stepCm * [math]::Sin($angRad)
+        }
+
+        $scanX = [double]$script:numControls["SCANX"].Value
+        $tofMaxMm = [double]$script:numControls["TOF"].Value
+        $tofMaxCm = $tofMaxMm * 0.1
+        $obsX = [double]$script:demoObsTarget.X
+        $obsY = [double]$script:demoObsTarget.Y
+
+        $dl = Raycast-DemoToF $rx $ry ($angRad + 0.7854) 4.5 $script:demoHasObs $obsX $obsY
+        $df = Raycast-DemoToF $rx $ry $angRad 5.0 $script:demoHasObs $obsX $obsY
+        $dr = Raycast-DemoToF $rx $ry ($angRad - 0.7854) 4.5 $script:demoHasObs $obsX $obsY
+
+        $script:liveState.X       = $rx
+        $script:liveState.Y       = $ry
+        $script:liveState.Heading = $angRad * 180.0 / [math]::PI
+        $script:liveState.Vbat    = 7.98
+        $script:liveState.FsmState = if ($rx -ge $scanX -and $ry -ge 55.0) { 2 } else { 1 }
+        $script:liveState.Dl = $dl
+        $script:liveState.Df = $df
+        $script:liveState.Dr = $dr
+        $script:liveState.VlExp  = $vDemo
+        $script:liveState.VrExp  = $vDemo
+        $script:liveState.VlReal = $vDemo
+        $script:liveState.VrReal = $vDemo
+
+        # Live ToF obstacle detection + real A* replanning when in scan zone
+        if ($script:demoHasObs -and -not $script:demoObsAdded -and $rx -ge $scanX -and $ry -ge 55.0) {
+            $dToObs = [math]::Sqrt(($rx - $obsX)*($rx - $obsX) + ($ry - $obsY)*($ry - $obsY))
+            if ($dToObs -le [math]::Min($tofMaxCm + 6.0, 38.0) -and $dToObs -ge 13.0) {
+                $script:demoObsAdded = $true
+                $script:dynObs.Add([PSCustomObject]@{ X=$obsX; Y=$obsY })
+                [CheesyAStar]::AddDynamicObstacleBox([float]$obsX, [float]$obsY, 5.0, 6.75)
+                $replan = [CheesyAStar]::PlanPathToFinish([float]$rx, [float]$ry, $true)
+                if ($replan.Count -ge 2) {
+                    $script:plannedPath = $replan
+                    $script:demoWpIdx = 1
+                    & $script:Fn.WriteLog ("3× ToF phát hiện cọc động ({0:F0},{1:F0}) cm -> A* tìm đường tránh ({2} nút)!" -f $obsX, $obsY, $replan.Count)
+                }
+            }
+        }
+
+        & $script:Fn.PushTrailPoint $rx $ry
+        & $script:Fn.UpdateTelLabels
+        & $script:Fn.DrawArenaMap
+    }
+
     $script:uiTimer.Add_Tick({
-        # 1. Real Bluetooth live stream
         if ($null -ne $script:serialPort -and $script:serialPort.IsOpen) {
             try {
                 $chunk = $script:serialPort.ReadExisting()
@@ -969,140 +1644,67 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
                         $idx = $script:rxBuffer.IndexOf("`n")
                         $ln  = $script:rxBuffer.Substring(0, $idx).Trim()
                         $script:rxBuffer = $script:rxBuffer.Substring($idx + 1)
-                        if ($ln.Length -gt 0) { & $script:handleIncomingLine $ln }
+                        if ($ln.Length -gt 0) { & $script:Fn.HandleIncomingLine $ln }
                     }
                 }
             } catch {}
             return
         }
-
-        # 2. Built-in 20Hz Demo Simulator when enabled
         if ($script:demoActive) {
-            $route = if ($script:demoHasObs) {
-                @(
-                    @(30.0,-6.0), @(30.0,15.0), @(30.0,50.0), @(24.0,74.0), @(20.0,98.0),
-                    @(55.0,102.0), @(85.0,82.0), @(105.0,102.0), @(142.0,100.0),
-                    @(158.0,72.0), @(158.0,32.0), @(162.0,12.0), @(150.0,-7.0)
-                )
-            } else {
-                @(
-                    @(30.0,-6.0), @(30.0,15.0), @(30.0,50.0), @(24.0,74.0), @(20.0,98.0),
-                    @(55.0,102.0), @(85.0,82.0), @(105.0,102.0), @(142.0,100.0),
-                    @(140.0,68.0), @(135.0,34.0), @(162.0,22.0), @(150.0,-7.0)
-                )
-            }
-            if ($script:demoWpIdx -ge $route.Count) {
-                $script:demoActive = $false
-                $script:liveState.FsmState = 4
-                $script:liveState.Score    = if ($script:demoObsAdded) { 272 } else { 257 }
-                $script:liveState.VlExp = 0; $script:liveState.VrExp = 0
-                $script:liveState.VlReal = 0; $script:liveState.VrReal = 0
-                $script:btnDemo.Text = "Mô phỏng Demo"
-                $script:btnDemo.BackColor = $script:cBlue
-                & $script:updateTelLabels
-                & $script:drawArenaMap
-                & $script:writeLog "Demo hoàn thành chặng về đích Ô 5!"
-                return
-            }
-
-            $tx = $route[$script:demoWpIdx][0]
-            $ty = $route[$script:demoWpIdx][1]
-            $rx = [double]$script:liveState.X
-            $ry = [double]$script:liveState.Y
-            $dx = $tx - $rx; $dy = $ty - $ry
-            $dist = [math]::Sqrt($dx * $dx + $dy * $dy)
-
-            # Segment speed from right-side tuner!
-            $segKey = if ($rx -lt 60.0) { if ($ry -lt 60.0) { "V1" } else { "V2" } }
-                      elseif ($rx -lt 120.0) { "V3" }
-                      else { if ($ry -ge 60.0) { "V4" } else { "V5" } }
-            $vDemo = [double]$script:numControls[$segKey].Value
-            $vMax  = [double]$script:numControls["VMAX"].Value
-            if ($vDemo -gt $vMax) { $vDemo = $vMax }
-            if ($script:demoObsAdded -and $rx -ge 60.0) {
-                $vDet = [double]$script:numControls["VDET"].Value
-                if ($vDemo -gt $vDet) { $vDemo = $vDet }
-            }
-
-            $stepCm = $vDemo * 0.05
-            $angRad = [math]::Atan2($dy, $dx)
-            if ($dist -le $stepCm) {
-                $rx = $tx; $ry = $ty
-                $script:demoWpIdx++
-            } else {
-                $rx += $stepCm * [math]::Cos($angRad)
-                $ry += $stepCm * [math]::Sin($angRad)
-            }
-
-            $scanX = [double]$script:numControls["SCANX"].Value
-            $script:liveState.X       = $rx
-            $script:liveState.Y       = $ry
-            $script:liveState.Heading = $angRad * 180.0 / [math]::PI
-            $script:liveState.Vbat    = 7.98
-            $script:liveState.FsmState = if ($rx -ge $scanX -and $ry -ge 55.0) { 2 } else { 1 }
-            $script:liveState.Dl = Raycast-DemoToF $rx $ry ($angRad + 0.7854) 4.5 $script:demoHasObs
-            $script:liveState.Df = Raycast-DemoToF $rx $ry $angRad 5.0 $script:demoHasObs
-            $script:liveState.Dr = Raycast-DemoToF $rx $ry ($angRad - 0.7854) 4.5 $script:demoHasObs
-            $script:liveState.VlExp  = $vDemo
-            $script:liveState.VrExp  = $vDemo
-            $script:liveState.VlReal = $vDemo
-            $script:liveState.VrReal = $vDemo
-
-            if ($script:demoHasObs -and -not $script:demoObsAdded -and $rx -ge 120.0 -and $ry -le 95.0) {
-                $script:demoObsAdded = $true
-                $script:dynObs.Add([PSCustomObject]@{ X=125.0; Y=65.0 })
-                & $script:writeLog "Demo 3× ToF phát hiện cọc ngẫu nhiên (125, 65) cm -> A* rẽ né!"
-            }
-
-            & $script:pushTrailPoint $rx $ry
-            & $script:updateTelLabels
-            & $script:drawArenaMap
+            & $script:Fn.StepDemoTick
         }
     })
 
-    # --- Button Handlers ---
-    $script:btnDemo.Add_Click({
+    # --- Button Handlers (100% $script:UI / $script:Theme / $script:Fn) ---
+    $script:UI.BtnDemo.Add_Click({
         if ($null -ne $script:serialPort -and $script:serialPort.IsOpen) {
             [System.Windows.Forms.MessageBox]::Show("Đang kết nối Bluetooth thật — hãy ngắt BLE trước khi chạy Demo.", "Thông báo") | Out-Null
             return
         }
         $script:demoActive = -not $script:demoActive
         if ($script:demoActive) {
-            $script:trail.Clear(); $script:breadcrumbs.Clear(); $script:dynObs.Clear()
-            $script:demoWpIdx = 1; $script:demoObsAdded = $false
-            $script:liveState.X = 30.0; $script:liveState.Y = -6.0; $script:liveState.Heading = 90.0
-            $script:liveState.FsmState = 1; $script:liveState.Score = 0
-            $script:btnDemo.Text = "Dừng Demo"
-            $script:btnDemo.BackColor = $cRed
-            & $script:writeLog "Bắt đầu mô phỏng Demo theo vận tốc V1..V5 bạn đang chọn!"
+            & $script:Fn.StartDemoPlan
+            $script:UI.BtnDemo.Text = "Dừng Demo"
+            $script:UI.BtnDemo.BackColor = $script:Theme.Red
+            & $script:Fn.WriteLog "Bắt đầu mô phỏng Demo theo A* C-Space & vận tốc V1..V5 bạn chọn!"
         } else {
-            $script:btnDemo.Text = "Mô phỏng Demo"
-            $script:btnDemo.BackColor = $script:cBlue
+            $script:UI.BtnDemo.Text = "Mô phỏng Demo"
+            $script:UI.BtnDemo.BackColor = $script:Theme.Blue
         }
     })
 
-    $btnDemoObs.Add_Click({
+    $script:UI.BtnDemoObs.Add_Click({
         $script:demoHasObs = -not $script:demoHasObs
-        $btnDemoObs.Text = if ($script:demoHasObs) { "Cọc Demo Ô 4: BẬT" } else { "Cọc Demo Ô 4: TẮT" }
-        $btnDemoObs.BackColor = if ($script:demoHasObs) { $cAmber } else { $cSlate }
+        $script:UI.BtnDemoObs.Text = if ($script:demoHasObs) { "Cọc Demo Ô 4: BẬT" } else { "Cọc Demo Ô 4: TẮT" }
+        $script:UI.BtnDemoObs.BackColor = if ($script:demoHasObs) { $script:Theme.Amber } else { $script:Theme.Slate }
+        if (-not $script:demoActive) { & $script:Fn.DrawArenaMap }
     })
 
-    $btnClearMap.Add_Click({
+    $script:UI.BtnClearMap.Add_Click({
+        $script:demoActive = $false
+        $script:UI.BtnDemo.Text = "Mô phỏng Demo"
+        $script:UI.BtnDemo.BackColor = $script:Theme.Blue
         $script:trail.Clear(); $script:breadcrumbs.Clear(); $script:dynObs.Clear()
+        $script:demoObsAdded = $false
+        [CheesyAStar]::ResetCSpace()
+        $script:plannedPath = [CheesyAStar]::PlanPathToFinish(30.0, -6.0, $false)
+        $script:demoObsTarget = Choose-DemoO4Obstacle $script:plannedPath
         $script:liveState.X = 30.0; $script:liveState.Y = -6.0; $script:liveState.Heading = 90.0
+        $script:liveState.FsmState = 0; $script:liveState.Score = 0
         $script:liveState.Dl = 8190; $script:liveState.Df = 8190; $script:liveState.Dr = 8190
-        & $script:updateTelLabels
-        & $script:drawArenaMap
-        & $script:writeLog "Đã xóa quỹ đạo & đưa robot hiển thị về gốc (30, -6)."
+        $script:liveState.MinCenterClr = 999.0; $script:liveState.MinChassisClr = 999.0
+        & $script:Fn.UpdateTelLabels
+        & $script:Fn.DrawArenaMap
+        & $script:Fn.WriteLog "Đã xóa quỹ đạo & đặt lại robot tại gốc (30, -6)."
     })
 
-    $btnExportCsv.Add_Click({
+    $script:UI.BtnExportCsv.Add_Click({
         if ($script:trail.Count -eq 0) {
-            & $script:writeLog "Chưa có điểm quỹ đạo nào để xuất CSV."
+            & $script:Fn.WriteLog "Chưa có điểm quỹ đạo nào để xuất CSV."
             return
         }
-        if (-not (Test-Path $LogsDir)) { [void](New-Item -ItemType Directory -Path $LogsDir) }
-        $csvPath = Join-Path $LogsDir ("trajectory_" + (Get-Date).ToString("yyyyMMdd_HHmmss") + ".csv")
+        if (-not (Test-Path $script:LogsDir)) { [void](New-Item -ItemType Directory -Path $script:LogsDir) }
+        $csvPath = Join-Path $script:LogsDir ("trajectory_" + (Get-Date).ToString("yyyyMMdd_HHmmss") + ".csv")
         $sb = New-Object System.Text.StringBuilder
         [void]$sb.AppendLine("index,x_cm,y_cm")
         $inv = [System.Globalization.CultureInfo]::InvariantCulture
@@ -1111,143 +1713,149 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
             [void]$sb.AppendLine("$i,$($p.X.ToString('0.00', $inv)),$($p.Y.ToString('0.00', $inv))")
         }
         [IO.File]::WriteAllText($csvPath, $sb.ToString(), (New-Object System.Text.UTF8Encoding($false)))
-        & $script:writeLog "Đã xuất $($script:trail.Count) điểm ra: $csvPath"
+        & $script:Fn.WriteLog "Đã xuất $($script:trail.Count) điểm ra: $csvPath"
     })
 
-    $btnScan.Add_Click({
-        & $refreshComList
-        & $script:writeLog "Đã quét danh sách cổng COM."
+    $script:UI.BtnScan.Add_Click({
+        & $script:Fn.RefreshComList
+        & $script:Fn.WriteLog "Đã quét danh sách cổng COM."
     })
 
-    $btnApplyAll.Add_Click({
-        $v = $numAll.Value
+    $script:UI.BtnApplyAll.Add_Click({
+        $v = $script:UI.NumAll.Value
         foreach ($k in @("V1","V2","V3","V4","V5")) { $script:numControls[$k].Value = $v }
-        & $script:writeLog "Đã đặt V1..V5 = $v cm/s trên bảng."
+        & $script:Fn.WriteLog "Đã đặt V1..V5 = $v cm/s trên bảng."
     })
 
-    $btnConn.Add_Click({
+    $script:UI.BtnConn.Add_Click({
         if ($null -ne $script:serialPort -and $script:serialPort.IsOpen) {
             $script:serialPort.Close(); $script:serialPort.Dispose(); $script:serialPort = $null
-            $btnConn.Text = "Kết nối BLE"; $btnConn.BackColor = $script:cBlue; $btnRead.Enabled = $false
-            $lblStatus.Text = "Trạng thái: Đã ngắt kết nối (Offline)"
-            & $script:writeLog "Đã ngắt kết nối Bluetooth."
+            $script:UI.BtnConn.Text = "Kết nối BLE"
+            $script:UI.BtnConn.BackColor = $script:Theme.Blue
+            $script:UI.BtnRead.Enabled = $false
+            $script:UI.LblStatus.Text = "Trạng thái: Đã ngắt kết nối (Offline)"
+            & $script:Fn.WriteLog "Đã ngắt kết nối Bluetooth."
             return
         }
-        $sel = [string]$script:cmbCom.SelectedItem
+        $sel = [string]$script:UI.CmbCom.SelectedItem
         if (-not ($sel -match '^(COM\d+)')) {
             [System.Windows.Forms.MessageBox]::Show("Chưa chọn cổng COM hợp lệ! Hãy ghép đôi HC-05 trong Windows trước.", "Thông báo") | Out-Null
             return
         }
         $comName = $matches[1]
         try {
-            $script:demoActive = $false; $script:btnDemo.Text = "Mô phỏng Demo"; $script:btnDemo.BackColor = $script:cBlue
+            $script:demoActive = $false
+            $script:UI.BtnDemo.Text = "Mô phỏng Demo"
+            $script:UI.BtnDemo.BackColor = $script:Theme.Blue
             $p = New-Object System.IO.Ports.SerialPort($comName, 9600, [System.IO.Ports.Parity]::None, 8, [System.IO.Ports.StopBits]::One)
             $p.NewLine = "`r`n"; $p.ReadTimeout = 100; $p.WriteTimeout = 1000
             $p.Open()
             Start-Sleep -Milliseconds 150
             $script:serialPort = $p
-            $btnConn.Text = "Ngắt BLE"; $btnConn.BackColor = $cRed; $btnRead.Enabled = $true
-            $lblStatus.Text = "Trạng thái: Đã kết nối $comName @ 9600 (đang vẽ quỹ đạo trực tiếp)"
-            & $script:writeLog "Đã mở $comName, đang đọc thông số từ xe..."
+            $script:UI.BtnConn.Text = "Ngắt BLE"
+            $script:UI.BtnConn.BackColor = $script:Theme.Red
+            $script:UI.BtnRead.Enabled = $true
+            $script:UI.LblStatus.Text = "Trạng thái: Đã kết nối $comName @ 9600 (đang vẽ quỹ đạo trực tiếp)"
+            & $script:Fn.WriteLog "Đã mở $comName, đang đọc thông số từ xe..."
 
             $liveVals = [ordered]@{}
-            if (& $script:fetchBleCfg $liveVals) {
-                & $syncValuesToUi $liveVals
-                & $script:writeLog "Đã đồng bộ đủ 17 thông số từ STM32!"
+            if (& $script:Fn.FetchBleCfg $liveVals) {
+                & $script:Fn.SyncValuesToUi $liveVals
+                & $script:Fn.WriteLog "Đã đồng bộ đủ 17 thông số từ STM32!"
             } else {
-                & $script:writeLog "Cảnh báo: Chưa nhận được `$CFG từ xe (kiểm tra nguồn xe / TX-RX HC-05)."
+                & $script:Fn.WriteLog "Cảnh báo: Chưa nhận được `$CFG từ xe (kiểm tra nguồn xe / TX-RX HC-05)."
             }
         } catch {
             if ($null -ne $script:serialPort) {
                 if ($script:serialPort.IsOpen) { $script:serialPort.Close() }
                 $script:serialPort.Dispose(); $script:serialPort = $null
             }
-            & $script:writeLog "Lỗi mở ${comName}: $($_.Exception.Message)"
+            & $script:Fn.WriteLog "Lỗi mở ${comName}: $($_.Exception.Message)"
         }
     })
 
-    $btnRead.Add_Click({
+    $script:UI.BtnRead.Add_Click({
         $liveVals = [ordered]@{}
-        if (& $script:fetchBleCfg $liveVals) {
-            & $syncValuesToUi $liveVals
-            & $script:writeLog "Đã đọc lại 17 thông số từ xe."
+        if (& $script:Fn.FetchBleCfg $liveVals) {
+            & $script:Fn.SyncValuesToUi $liveVals
+            & $script:Fn.WriteLog "Đã đọc lại 17 thông số từ xe."
         } else {
-            & $script:writeLog "Lỗi: Không nhận được `$CFG từ xe."
+            & $script:Fn.WriteLog "Lỗi: Không nhận được `$CFG từ xe."
         }
     })
 
-    $btnSendLive.Add_Click({
+    $script:UI.BtnSendLive.Add_Click({
         if ($null -eq $script:serialPort -or -not $script:serialPort.IsOpen) {
             [System.Windows.Forms.MessageBox]::Show("Hãy kết nối Bluetooth HC-05 trước, hoặc dùng 'Lưu Code (.h)'.", "Chưa kết nối BLE") | Out-Null
             return
         }
         $okCnt = 0
-        foreach ($spec in $ParamSpecs) {
+        foreach ($spec in $script:ParamSpecs) {
             $vStr = Format-CfgValue ([double]$script:numControls[$spec.Key].Value) $spec.Type
-            $res = & $script:sendAndWaitAck "CFG:$($spec.Key),$vStr" "`$ACK,CFG,$($spec.Key)" 1200
-            if ($res.Ok) { $okCnt++ } else { & $script:writeLog "Lỗi $($spec.Key)=$vStr -> $($res.Reply)" }
+            $res = & $script:Fn.SendAndWaitAck "CFG:$($spec.Key),$vStr" "`$ACK,CFG,$($spec.Key)" 1200
+            if ($res.Ok) { $okCnt++ } else { & $script:Fn.WriteLog "Lỗi $($spec.Key)=$vStr -> $($res.Reply)" }
         }
-        & $script:writeLog "Đã gửi LIVE $okCnt/$($ParamSpecs.Count) thông số! Bấm 'Lưu Flash' nếu muốn giữ sau khi tắt nguồn."
+        & $script:Fn.WriteLog "Đã gửi LIVE $okCnt/$($script:ParamSpecs.Count) thông số! Bấm 'Lưu Flash' nếu muốn giữ sau khi tắt nguồn."
     })
 
-    $btnSaveFlash.Add_Click({
+    $script:UI.BtnSaveFlash.Add_Click({
         if ($null -eq $script:serialPort -or -not $script:serialPort.IsOpen) {
             [System.Windows.Forms.MessageBox]::Show("Hãy kết nối Bluetooth HC-05 trước khi lưu Flash.", "Chưa kết nối BLE") | Out-Null
             return
         }
-        $res = & $script:sendAndWaitAck "CFG:SAVE" '$ACK,CFG,SAVE' 2500
-        if ($res.Ok) { & $script:writeLog "OK: Đã lưu vĩnh viễn vào Flash Sector 7 trên STM32!" }
-        else { & $script:writeLog "Lỗi CFG:SAVE ($($res.Reply)) — Bấm DỪNG KHẨN rồi thử lại." }
+        $res = & $script:Fn.SendAndWaitAck "CFG:SAVE" '$ACK,CFG,SAVE' 2500
+        if ($res.Ok) { & $script:Fn.WriteLog "OK: Đã lưu vĩnh viễn vào Flash Sector 7 trên STM32!" }
+        else { & $script:Fn.WriteLog "Lỗi CFG:SAVE ($($res.Reply)) — Bấm DỪNG KHẨN rồi thử lại." }
     })
 
-    $btnSaveCode.Add_Click({
+    $script:UI.BtnSaveCode.Add_Click({
         try {
-            foreach ($spec in $ParamSpecs) { Write-CodeParam $spec ([double]$script:numControls[$spec.Key].Value) }
-            & $script:writeLog "OK: Đã ghi 17 thông số vào Core/Inc/robot_config.h & pure_pursuit.h!"
+            foreach ($spec in $script:ParamSpecs) { Write-CodeParam $spec ([double]$script:numControls[$spec.Key].Value) }
+            & $script:Fn.WriteLog "OK: Đã ghi 17 thông số vào Core/Inc/robot_config.h & pure_pursuit.h!"
         } catch {
-            & $script:writeLog "Lỗi ghi file code: $($_.Exception.Message)"
+            & $script:Fn.WriteLog "Lỗi ghi file code: $($_.Exception.Message)"
         }
     })
 
-    $btnResetDef.Add_Click({
+    $script:UI.BtnResetDef.Add_Click({
         if ($null -ne $script:serialPort -and $script:serialPort.IsOpen) {
-            $res = & $script:sendAndWaitAck "CFG:RESET" '$ACK,CFG,RESET' 1500
+            $res = & $script:Fn.SendAndWaitAck "CFG:RESET" '$ACK,CFG,RESET' 1500
             if ($res.Ok) {
                 $liveVals = [ordered]@{}
-                [void](& $script:fetchBleCfg $liveVals)
-                & $syncValuesToUi $liveVals
-                & $script:writeLog "Đã khôi phục mặc định trên xe."
-            } else { & $script:writeLog "Lỗi CFG:RESET: $($res.Reply)" }
+                [void](& $script:Fn.FetchBleCfg $liveVals)
+                & $script:Fn.SyncValuesToUi $liveVals
+                & $script:Fn.WriteLog "Đã khôi phục mặc định trên xe."
+            } else { & $script:Fn.WriteLog "Lỗi CFG:RESET: $($res.Reply)" }
         } else {
-            & $syncValuesToUi (Read-CodeDefaults)
-            & $script:writeLog "Đã tải lại giá trị từ file code."
+            & $script:Fn.SyncValuesToUi (Read-CodeDefaults)
+            & $script:Fn.WriteLog "Đã tải lại giá trị từ file code."
         }
     })
 
-    $btnRunAuto.Add_Click({
+    $script:UI.BtnRunAuto.Add_Click({
         if ($null -eq $script:serialPort -or -not $script:serialPort.IsOpen) { return }
         $script:trail.Clear(); $script:breadcrumbs.Clear(); $script:dynObs.Clear()
-        $res = & $script:sendAndWaitAck "RUN:2" '$ACK,RUN,2'
-        & $script:writeLog "RUN:2 -> $($res.Reply)"
+        $res = & $script:Fn.SendAndWaitAck "RUN:2" '$ACK,RUN,2'
+        & $script:Fn.WriteLog "RUN:2 -> $($res.Reply)"
     })
 
-    $btnStop.Add_Click({
+    $script:UI.BtnStop.Add_Click({
         if ($null -eq $script:serialPort -or -not $script:serialPort.IsOpen) { return }
-        $res = & $script:sendAndWaitAck "STOP" '$ACK,STOP'
-        & $script:writeLog "STOP -> $($res.Reply)"
+        $res = & $script:Fn.SendAndWaitAck "STOP" '$ACK,STOP'
+        & $script:Fn.WriteLog "STOP -> $($res.Reply)"
     })
 
-    $btnZero.Add_Click({
+    $script:UI.BtnZero.Add_Click({
         if ($null -eq $script:serialPort -or -not $script:serialPort.IsOpen) { return }
         $script:trail.Clear(); $script:breadcrumbs.Clear(); $script:dynObs.Clear()
-        $res = & $script:sendAndWaitAck "ZERO" '$ACK,ZERO'
-        & $script:drawArenaMap
-        & $script:writeLog "ZERO -> $($res.Reply)"
+        $res = & $script:Fn.SendAndWaitAck "ZERO" '$ACK,ZERO'
+        & $script:Fn.DrawArenaMap
+        & $script:Fn.WriteLog "ZERO -> $($res.Reply)"
     })
 
-    $btnFlashStlink.Add_Click({
-        & $script:writeLog "Đang mở NAP_CODE.bat để build & nạp ST-Link..."
-        Start-Process cmd.exe -ArgumentList "/c `"`"$NapBatPath`"`"" -WorkingDirectory $RootDir
+    $script:UI.BtnFlashStlink.Add_Click({
+        & $script:Fn.WriteLog "Đang mở NAP_CODE.bat để build & nạp ST-Link..."
+        Start-Process cmd.exe -ArgumentList "/c `"`"$($script:NapBatPath)`"`"" -WorkingDirectory $script:RootDir
     })
 
     $form.Add_FormClosed({
@@ -1259,34 +1867,86 @@ function Build-DashboardForm([System.Collections.IDictionary]$InitialValues) {
         if ($null -ne $script:mapBmp) { $script:mapBmp.Dispose() }
     })
 
-    & $refreshComList
-    & $script:updateTelLabels
-    & $script:drawArenaMap
-    & $script:writeLog "Sẵn sàng! Bấm 'Mô phỏng Demo' để xem thử quỹ đạo, hoặc kết nối HC-05 xem xe chạy thật."
+    & $script:Fn.RefreshComList
+    & $script:Fn.UpdateTelLabels
+    & $script:Fn.DrawArenaMap
+    & $script:Fn.WriteLog "Sẵn sàng! Bấm 'Mô phỏng Demo' để xem quỹ đạo A* thực tế, hoặc kết nối HC-05 xem xe chạy thật."
     $script:uiTimer.Start()
-
-    return @{ Form=$form; DrawMap=$script:drawArenaMap; PushPt=$script:pushTrailPoint; DynObs=$script:dynObs; LiveState=$script:liveState }
+    return $form
 }
 
 $defaults = Read-CodeDefaults
 
 if ($Arg1 -eq "--selftest") {
-    $ctx = Build-DashboardForm $defaults
-    # Test map rendering with sample trajectory, 3 ToF rays & dynamic obstacle
-    & $ctx.PushPt 30.0 -6.0
-    & $ctx.PushPt 30.0 50.0
-    & $ctx.PushPt 85.0 82.0
-    & $ctx.PushPt 135.0 80.0
-    $ctx.LiveState.X = 135.0; $ctx.LiveState.Y = 80.0; $ctx.LiveState.Heading = -90.0
-    $ctx.LiveState.Dl = 180; $ctx.LiveState.Df = 140; $ctx.LiveState.Dr = 220
-    $ctx.DynObs.Add([PSCustomObject]@{ X=125.0; Y=65.0 })
-    & $ctx.DrawMap
+    $form = Build-DashboardForm $defaults
+    $form.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
+    $form.Location = New-Object System.Drawing.Point(-3000, -3000)
+    $form.ShowInTaskbar = $false
+    $form.Show()
+    [System.Windows.Forms.Application]::DoEvents()
+
+    # 1. Bounds audit across all controls & realized tab pages
+    function Check-Bounds([System.Windows.Forms.Control]$parent) {
+        $cw = $parent.ClientSize.Width; $ch = $parent.ClientSize.Height
+        foreach ($c in $parent.Controls) {
+            if ($c.Left -lt 0 -or $c.Top -lt 0 -or $c.Right -gt $cw -or $c.Bottom -gt $ch) {
+                throw "Clipping control '$($c.Text)' ($($c.Left),$($c.Top),$($c.Right),$($c.Bottom)) inside '$($parent.GetType().Name):$($parent.Text)' (${cw}x${ch})"
+            }
+            if ($c -is [System.Windows.Forms.TabControl]) {
+                foreach ($tp in $c.TabPages) {
+                    $c.SelectedTab = $tp
+                    [System.Windows.Forms.Application]::DoEvents()
+                    Check-Bounds $tp
+                }
+                $c.SelectedIndex = 0
+            } elseif ($c.Controls.Count -gt 0) {
+                Check-Bounds $c
+            }
+        }
+    }
+    Check-Bounds $form
+
+    # 2. Button click audit (catch any scoping null errors)
+    $script:UI.BtnDemoObs.PerformClick()
+    $script:UI.BtnDemoObs.PerformClick()
+    $script:UI.BtnApplyAll.PerformClick()
+    $script:UI.BtnScan.PerformClick()
+    $script:UI.BtnClearMap.PerformClick()
+    $script:UI.BtnResetDef.PerformClick()
+    $script:UI.BtnDemo.PerformClick()
+    $script:UI.BtnDemo.PerformClick()
+
+    # 3. Run A: Clean A* Demo to finish
+    $script:demoHasObs = $false
+    $script:demoActive = $true
+    & $script:Fn.StartDemoPlan
+    for ($t = 0; $t -lt 900 -and $script:demoActive; $t++) { & $script:Fn.StepDemoTick }
+    if ($script:liveState.FsmState -ne 4) { throw "Clean Demo did not reach finish! Fsm=$($script:liveState.FsmState) X=$($script:liveState.X) Y=$($script:liveState.Y)" }
+    $cleanSummary = ("X={0:F1},Y={1:F1},CenMin={2:F2},ChaMin={3:F2}" -f $script:liveState.X, $script:liveState.Y, $script:liveState.MinCenterClr, $script:liveState.MinChassisClr)
+    if ($script:liveState.MinCenterClr -lt 5.75 -or $script:liveState.MinChassisClr -lt 0.30) {
+        throw "Clean Demo collision/clearance violation: $cleanSummary"
+    }
+
+    # 4. Run B: Dynamic Obstacle in O4 + ToF replanning Demo to finish
+    $script:UI.BtnDemoObs.PerformClick()
+    if (-not $script:demoHasObs) { throw "BtnDemoObs failed to toggle demoHasObs" }
+    $script:demoActive = $true
+    & $script:Fn.StartDemoPlan
+    for ($t = 0; $t -lt 900 -and $script:demoActive; $t++) { & $script:Fn.StepDemoTick }
+    if ($script:liveState.FsmState -ne 4 -or -not $script:demoObsAdded) {
+        throw "DynObs Demo failed! Fsm=$($script:liveState.FsmState) ObsAdded=$($script:demoObsAdded) X=$($script:liveState.X) Y=$($script:liveState.Y)"
+    }
+    $dynSummary = ("Obs=({0:F0},{1:F0}),X={2:F1},Y={3:F1},CenMin={4:F2},ChaMin={5:F2}" -f $script:demoObsTarget.X, $script:demoObsTarget.Y, $script:liveState.X, $script:liveState.Y, $script:liveState.MinCenterClr, $script:liveState.MinChassisClr)
+    if ($script:liveState.MinCenterClr -lt 5.75 -or $script:liveState.MinChassisClr -lt 0.30) {
+        throw "DynObs Demo collision/clearance violation: $dynSummary"
+    }
+
     $cnt = $script:numControls.Count
-    $ctx.Form.Dispose()
-    Write-Host "SELFTEST_OK Params=$cnt MapRendered=True IconTuner=$(Test-Path $TunerIcoPath) IconNap=$(Test-Path $NapIcoPath)"
+    $form.Dispose()
+    Write-Host "SELFTEST_OK Params=$cnt BoundsOK=True ClicksOK=True CleanRun=[$cleanSummary] DynObsRun=[$dynSummary]"
     exit 0
 }
 
 Ensure-Shortcuts
-$ctx = Build-DashboardForm $defaults
-[void]$ctx.Form.ShowDialog()
+$mainForm = Build-DashboardForm $defaults
+[void]$mainForm.ShowDialog()
