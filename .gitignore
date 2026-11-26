@@ -1,4 +1,5 @@
 build/
+*.lnk
 *.su
 *.map
 *.exe
