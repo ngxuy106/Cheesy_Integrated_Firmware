@@ -6,7 +6,7 @@ Dự án STM32 tiêu chuẩn (chỉ gồm `Core/Inc`, `Core/Src`, `Drivers/`, `i
 
 | File / Shortcut | Công dụng |
 |---|---|
-| **`CHINH_THONG_SO.bat`** *(hoặc shortcut `CHINH_THONG_SO`)* | Mở **cửa sổ giao diện Windows** chỉnh toàn bộ **17 thông số** (tốc độ Ô 1..Ô 5, `Vmax`, gia tốc, `Kp/Ki`, bánh xe, encoder, tầm quét ToF, đảo chiều IMU...).<br>• Kết nối **Bluetooth HC-05** ➔ bấm **Gửi LIVE qua Bluetooth** ➔ bấm **Lưu vào Flash xe** — **không cần nạp lại code!**<br>• Hoặc bấm **Lưu vào file Code (.h)** rồi **Build & Nạp ST-Link**. |
+| **`CHINH_THONG_SO.bat`** *(hoặc shortcut `CHINH_THONG_SO`)* | Mở **Dashboard Windows 2 cột**:<br>• **Bên trái:** Bản đồ sa bàn 2D (`180×120 cm`) vẽ trực tiếp quỹ đạo + các điểm xe đi qua, 3 tia ToF, vật cản động, thông số EKF/FSM/pin/tốc độ bánh, kèm nút **Mô phỏng Demo** & **Xuất CSV**.<br>• **Bên phải:** Bảng chỉnh **17 thông số** — kết nối Bluetooth HC-05 ➔ **Gửi LIVE** ➔ **Lưu Flash xe** (không cần nạp code) hoặc **Lưu Code (.h)**. |
 | **`NAP_CODE.bat`** *(hoặc shortcut `NAP_CODE`)* | Cắm ST-Link V2 (`SWDIO=PA13`, `SWCLK=PA14`, `GND`, `3V3`), nhấc bánh xe ➔ bấm đúp để tự biên dịch và nạp firmware vào `0x08000000`. |
 
 ## Chạy xe trên sân
