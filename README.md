@@ -1,33 +1,24 @@
 # Cheesy Integrated Firmware (STM32F411CEU6)
 
-Firmware tích hợp hoàn chỉnh cho xe robot tự hành giải sa bàn trên nền tảng **STM32F411CEU6** (`100 MHz`, `512 KB Flash`, `128 KB SRAM`), tách rõ 3 lớp để hai thành viên phát triển độc lập không xung đột code.
+Dự án STM32 tiêu chuẩn (chỉ gồm `Core/Inc`, `Core/Src`, `Drivers/`) — gộp sẵn tầng thấp của bạn bạn và tầng cao tự hành (`EKF` + `3× VL53L0X` + `A*` + `Pure Pursuit` + `FSM`).
 
-## 1. Kiến trúc 3 lớp
+## Bước 1 — Tải về & nạp luôn
+1. Clone hoặc tải ZIP repo này về máy.
+2. Cắm mạch nạp **ST-Link V2** (`SWDIO=PA13`, `SWCLK=PA14`, `GND`, `3V3`), nhấc bánh xe khỏi mặt bàn.
+3. Bấm đúp file **`NAP_CODE.bat`** — tự biên dịch và nạp thẳng vào STM32F411CEU6 tại `0x08000000`.
 
-| Thư mục | Vai trò | Phụ thuộc STM32 HAL |
-|---|---|:-:|
-| `Core/` | Driver tầng thấp (`motor_api.c` 100 Hz PID + TIM2/3 Encoder, `imu.c` MPU6050 200 Hz, `vl53l0x.c` 3× ToF, `battery.c`, `ble_telemetry.c`, `app.c`) | Có |
-| `Interface/` | Hợp đồng giao tiếp & cầu nối an toàn ngắt (`robot_interface.h`, `robot_hw_bridge.c`) — đọc atomic encoder, kiểm tra độ tươi ToF, slew-rate & giới hạn vận tốc `<= 30 cm/s` | Chỉ `.c` |
-| `HighLevel/` | Tầng cao thuần C11: `ekf_localization.c` (EKF 3 trạng thái + ZUPT + chống trượt/treo IMU), `arena_map.c` (C-Space `50×74`), `obstacle_mapper.c` (3× ToF quét từ Ô 3..Ô 5), `astar_planner.c`, `pure_pursuit.c`, `mission_fsm.c` | **Không** |
-| `Tests/` | Bộ unit test & mô phỏng vật lý 2D vòng kín chạy trực tiếp trên PC bằng GCC | **Không** |
+## Bước 2 — Chỉnh thông số ở đâu
+- **Chỉnh cố định trong code:** Mở duy nhất file **`Core/Inc/robot_config.h`**:
+  - Tốc độ mong muốn từng ô (`10..30 cm/s`): `V_TARGET_O1_CMS` .. `V_TARGET_O5_CMS`
+  - Cơ khí bánh xe / encoder: `ROBOT_WHEEL_DIAM_CM`, `ROBOT_TRACK_WIDTH_CM`, `ROBOT_ENCODER_PPR`
+  - Tầm quét ToF (bật từ Ô 3): `FSM_SCAN_TRIGGER_X_CM`, `TOF_SCAN_MAX_MM`
+  ➔ Sau khi sửa xong, bấm đúp lại **`NAP_CODE.bat`** để nạp.
+- **Chỉnh nhanh trên sân qua Bluetooth HC-05 (`9600 baud`):**
+  - `VSEG:0,22` ➔ đặt tốc độ cả 5 ô thành `22 cm/s`
+  - `VSEG:3,28` ➔ chỉnh riêng Ô 3 thành `28 cm/s` (`1..5` ứng với Ô 1..Ô 5)
+- **Chỉnh PI động cơ (`g_m0_kp/ki`, `g_m1_kp/ki`) hoặc đảo chiều cảm biến:** Mở **`Core/Src/app.c`**.
 
-Xem chi tiết sơ đồ, pinout và quy trình chạy sân trong [INTERFACE_CONTRACT.md](INTERFACE_CONTRACT.md).
-
-## 2. Biên dịch & Kiểm thử nhanh (Windows PowerShell)
-
-### Chạy bộ test & mô phỏng 2D trên PC (GCC)
-```powershell
-.\Tests\run_host_tests.ps1
-```
-
-### Biên dịch firmware STM32F411CEU6 (CMake + `arm-none-eabi-gcc`)
-```powershell
-.\build_firmware.ps1 -Preset Release
-```
-File nạp ra tại `build/Release/cheesy_integrated.{bin,hex,elf}` (nạp tại `0x08000000`).
-
-## 3. 3 cách hiệu chỉnh vận tốc mong muốn `v_target` (`10..30 cm/s`)
-
-1. **Sửa trong code:** Chỉnh `V_TARGET_O1_CMS .. V_TARGET_O5_CMS` trong `HighLevel/Inc/robot_config.h`.
-2. **Chỉnh live qua BLE (`USART2` 9600 baud):** Gửi `VSEG:0,<v_cms>` (đặt cả 5 ô) hoặc `VSEG:<1..5>,<v_cms>` (chỉnh riêng Ô 1..Ô 5) — giữ nguyên qua các lần nhấn `PA11` reset.
-3. **Chỉnh live qua STM32CubeMonitor:** Sửa trực tiếp mảng `g_v_target_cms[0..4]` trong `Core/Src/app.c`.
+## Bước 3 — Chạy xe trên sân
+1. Đặt xe đứng yên trên vạch xuất phát **5 giây đầu** sau khi bật nguồn để MPU6050 hiệu chuẩn gyro.
+2. Nhấn nút **`PA11`** trên mạch để xe tự chạy (từ Ô 1 ➔ Ô 2 ➔ vào **Ô 3 tự bật 3× VL53L0X quét né vật cản** ➔ về đích Ô 5).
+3. Về đích hoặc dừng xong, nhấn **`PA11`** lần nữa để reset chạy lượt mới (vẫn giữ tốc độ vừa chỉnh qua BLE).

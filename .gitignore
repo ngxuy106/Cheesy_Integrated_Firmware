@@ -1,5 +1,4 @@
 build/
-Tests/bin/
 *.su
 *.map
 *.exe

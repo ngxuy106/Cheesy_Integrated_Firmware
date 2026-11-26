@@ -22,12 +22,8 @@ add_executable(${CMAKE_PROJECT_NAME})
 # Add STM32CubeMX HAL + startup sources
 add_subdirectory(cmake/stm32cubemx)
 
-# Add sources separated cleanly into 3 layers:
-# 1. Core/ (Low-level drivers from friend's cheesy project)
-# 2. Interface/ (ISR-safe hardware bridge between Low-Level & High-Level)
-# 3. HighLevel/ (Autonomous navigation: EKF, Arena Map, 3x ToF Mapper, A*, Pure Pursuit, FSM)
+# All application sources in Core/Src
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    # --- Low-Level Drivers (Friend) ---
     Core/Src/motor_api.c
     Core/Src/vl53l0x.c
     Core/Src/imu.c
@@ -35,22 +31,17 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/ble_telemetry.c
     Core/Src/ram_monitor.c
     Core/Src/app.c
-
-    # --- Interface Bridge (2-Team Contract) ---
-    Interface/Src/robot_hw_bridge.c
-
-    # --- High-Level Autonomy (User - 100% HAL-independent) ---
-    HighLevel/Src/ekf_localization.c
-    HighLevel/Src/arena_map.c
-    HighLevel/Src/obstacle_mapper.c
-    HighLevel/Src/astar_planner.c
-    HighLevel/Src/pure_pursuit.c
-    HighLevel/Src/mission_fsm.c
+    Core/Src/robot_hw_bridge.c
+    Core/Src/ekf_localization.c
+    Core/Src/arena_map.c
+    Core/Src/obstacle_mapper.c
+    Core/Src/astar_planner.c
+    Core/Src/pure_pursuit.c
+    Core/Src/mission_fsm.c
 )
 
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-    Interface/Inc
-    HighLevel/Inc
+    Core/Inc
 )
 
 list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
