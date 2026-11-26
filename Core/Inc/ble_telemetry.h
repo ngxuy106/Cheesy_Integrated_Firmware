@@ -23,6 +23,8 @@
  *  OBS:<zone>,<pos>                     Nạp vật cản (cũ: SET:OBS,<zone>,<pos>)
  *  RUN:<1|2>                            1 = lái tay, 2 = tự hành (cũ: CMD:RUN,<n>)
  *  VSEG:<0..5>,<v_cms>                  Hiệu chỉnh v_target [10..30] cm/s (0=tất cả, 1..5=Ô 1..5)
+ *  CFG:GET | CFG:SAVE | CFG:RESET       Đọc toàn bộ thông số / Lưu Flash / Khôi phục mặc định
+ *  CFG:<KEY>,<VAL>                      Chỉnh live thông số (V1..V5,VALL,VDET,VMAX,ACC,KP,KI,WD,WB,PPR,TOF,SCANX,LD,YAWINV)
  *  ZERO                                 Reset gốc toạ độ + IMU (cũ: CMD:ZERO)
  *  TEL | TEL:<ms>                       TEL = gửi 1 gói ngay; TEL:<ms> = chu kỳ, 0 = tắt
  *  WDG:<ms>                             Watchdog lái tay: quá <ms> không có lệnh -> dừng, 0 = tắt
@@ -43,9 +45,9 @@
 /* ============================ Cấu hình ============================ */
 #define BLE_RX_CHUNK_SIZE        64      /* buffer HAL nhận mỗi lần (ReceiveToIdle) */
 #define BLE_RX_RING_SIZE         256     /* PHẢI là luỹ thừa của 2 */
-#define BLE_TX_RING_SIZE         256     /* PHẢI là luỹ thừa của 2 */
+#define BLE_TX_RING_SIZE         512     /* PHẢI là luỹ thừa của 2 */
 #define BLE_TX_CHUNK_SIZE        64      /* số byte tối đa mỗi lần Transmit_IT */
-#define BLE_TX_LINE_MAX          96
+#define BLE_TX_LINE_MAX          128
 #define BLE_LINE_MAX             64
 #define BLE_TOKEN_MAX            6
 #define BLE_LINE_TIMEOUT_MS      50      /* gặp khoảng lặng này mà chưa có \n thì coi như hết lệnh */
@@ -90,15 +92,20 @@ typedef void (*BLE_ZeroCalibHandler_t)(void);
 typedef void (*BLE_StopHandler_t)(void);
 /* Hieu chinh v_target (seg = 0: tat ca 5 doan, 1..5: O 1..O 5; v_cms trong [10..30]) */
 typedef bool (*BLE_VTargetHandler_t)(uint8_t seg_1based, int16_t v_cms);
+/* Chinh live & luu Flash thong so he thong */
+typedef bool (*BLE_ConfigSetHandler_t)(const char *key, float value);
+typedef bool (*BLE_ConfigActionHandler_t)(const char *action);
 
 typedef struct
 {
-    BLE_DriveHandler_t     on_drive;
-    BLE_ObstacleHandler_t  on_set_obstacle;
-    BLE_RunModeHandler_t   on_set_mode;
-    BLE_ZeroCalibHandler_t on_zero;
-    BLE_StopHandler_t      on_stop;
-    BLE_VTargetHandler_t   on_set_vtarget;
+    BLE_DriveHandler_t        on_drive;
+    BLE_ObstacleHandler_t     on_set_obstacle;
+    BLE_RunModeHandler_t      on_set_mode;
+    BLE_ZeroCalibHandler_t    on_zero;
+    BLE_StopHandler_t         on_stop;
+    BLE_VTargetHandler_t      on_set_vtarget;
+    BLE_ConfigSetHandler_t    on_cfg_set;
+    BLE_ConfigActionHandler_t on_cfg_action;
 } BLE_Callbacks_t;
 
 /* ============================ API ============================ */

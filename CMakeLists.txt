@@ -30,6 +30,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/battery.c
     Core/Src/ble_telemetry.c
     Core/Src/ram_monitor.c
+    Core/Src/runtime_config.c
     Core/Src/app.c
     Core/Src/robot_hw_bridge.c
     Core/Src/ekf_localization.c

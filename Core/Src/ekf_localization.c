@@ -8,6 +8,7 @@
 
 #include "ekf_localization.h"
 #include "robot_config.h"
+#include "runtime_config.h"
 #include <math.h>
 #include <string.h>
 
@@ -206,19 +207,23 @@ void EKF_Update(EKF_Localizer_t *ekf,
 
     ekf->update_count++;
 
+    float cm_per_tick = RuntimeConfig_CmPerTick();
+    float track_w     = (g_cfg.track_width_cm > 1.0f) ? g_cfg.track_width_cm : ROBOT_TRACK_WIDTH_CM;
+    float v_max       = (g_cfg.v_max > 1.0f) ? g_cfg.v_max : ROBOT_MAX_WHEEL_SPEED_CMS;
+
     /* 0. Chan xung encoder bat thuong (bao ve neu hardware timer bi nhieu dot bien) */
-    int32_t max_ticks = (int32_t)((5.0f * ROBOT_MAX_WHEEL_SPEED_CMS * dt_s) / ROBOT_CM_PER_TICK);
+    int32_t max_ticks = (int32_t)((5.0f * v_max * dt_s) / cm_per_tick);
     if (max_ticks < 200) max_ticks = 200;
     if (delta_ticks_left  >  max_ticks) delta_ticks_left  =  max_ticks;
     if (delta_ticks_left  < -max_ticks) delta_ticks_left  = -max_ticks;
     if (delta_ticks_right >  max_ticks) delta_ticks_right =  max_ticks;
     if (delta_ticks_right < -max_ticks) delta_ticks_right = -max_ticks;
 
-    /* 1. Tinh quang duong tinh tien & goc quay tu Encoder vi sai (2800 PPR) */
-    float dl_cm = (float)delta_ticks_left  * ROBOT_CM_PER_TICK;
-    float dr_cm = (float)delta_ticks_right * ROBOT_CM_PER_TICK;
+    /* 1. Tinh quang duong tinh tien & goc quay tu Encoder vi sai */
+    float dl_cm = (float)delta_ticks_left  * cm_per_tick;
+    float dr_cm = (float)delta_ticks_right * cm_per_tick;
     float ds_cm = 0.5f * (dl_cm + dr_cm);
-    float dtheta_enc = (dr_cm - dl_cm) / ROBOT_TRACK_WIDTH_CM;
+    float dtheta_enc = (dr_cm - dl_cm) / track_w;
 
     ekf->pose.v_cms    = ds_cm / dt_s;
     ekf->omega_enc_rads = dtheta_enc / dt_s;

@@ -8,6 +8,7 @@
 
 #include "robot_hw_bridge.h"
 #include "robot_config.h"
+#include "runtime_config.h"
 #include <math.h>
 #include <string.h>
 
@@ -241,33 +242,38 @@ void RobotBridge_ApplyDriveCmd(const RobotDriveCmd_t *cmd, float dt_s)
         return;
     }
 
-    /* 1. Kep van toc muc tieu trong nguong cho phep (max 30 cm/s) */
+    float v_max      = (g_cfg.v_max > 1.0f) ? g_cfg.v_max : ROBOT_MAX_SPEED_CMS;
+    float accel_max  = (g_cfg.accel_max_cms2 > 1.0f) ? g_cfg.accel_max_cms2 : ROBOT_ACCEL_MAX_CMS2;
+    float track_w    = (g_cfg.track_width_cm > 1.0f) ? g_cfg.track_width_cm : ROBOT_TRACK_WIDTH_CM;
+    float wheel_r_cm = (g_cfg.wheel_diam_cm > 0.5f) ? (g_cfg.wheel_diam_cm * 0.5f) : ROBOT_WHEEL_RADIUS_CM;
+
+    /* 1. Kep van toc muc tieu trong nguong cho phep */
     float target_v = cmd->v_linear_cms;
     float target_w = cmd->omega_rads;
-    if (target_v >  ROBOT_MAX_SPEED_CMS) target_v =  ROBOT_MAX_SPEED_CMS;
-    if (target_v < -ROBOT_MAX_SPEED_CMS) target_v = -ROBOT_MAX_SPEED_CMS;
+    if (target_v >  v_max) target_v =  v_max;
+    if (target_v < -v_max) target_v = -v_max;
     if (target_w >  ROBOT_MAX_OMEGA_RADS) target_w =  ROBOT_MAX_OMEGA_RADS;
     if (target_w < -ROBOT_MAX_OMEGA_RADS) target_w = -ROBOT_MAX_OMEGA_RADS;
 
     /* 2. Ramp gia toc chong truot banh khi tang/giam toc */
-    s_cur_v_cms  = slew_limit(s_cur_v_cms,  target_v, ROBOT_ACCEL_MAX_CMS2  * dt_s);
+    s_cur_v_cms  = slew_limit(s_cur_v_cms,  target_v, accel_max             * dt_s);
     s_cur_w_rads = slew_limit(s_cur_w_rads, target_w, ROBOT_ALPHA_MAX_RADS2 * dt_s);
 
     /* 3. Dong hoc nguoc xe vi sai: (v, w) -> (v_L, v_R) [cm/s] */
-    float half_wb = ROBOT_TRACK_WIDTH_CM * 0.5f;
+    float half_wb = track_w * 0.5f;
     float v_left_cms  = s_cur_v_cms - s_cur_w_rads * half_wb;
     float v_right_cms = s_cur_v_cms + s_cur_w_rads * half_wb;
 
-    /* 4. Bao hoa 2 banh theo cung ti le de giu dung ban kinh cua & <= 30 cm/s */
+    /* 4. Bao hoa 2 banh theo cung ti le de giu dung ban kinh cua & <= v_max */
     float peak = fmaxf(fabsf(v_left_cms), fabsf(v_right_cms));
-    if (peak > ROBOT_MAX_WHEEL_SPEED_CMS) {
-        float scale = ROBOT_MAX_WHEEL_SPEED_CMS / peak;
+    if (peak > v_max) {
+        float scale = v_max / peak;
         v_left_cms  *= scale;
         v_right_cms *= scale;
     }
 
-    float w_left_rads  = v_left_cms  / ROBOT_WHEEL_RADIUS_CM;
-    float w_right_rads = v_right_cms / ROBOT_WHEEL_RADIUS_CM;
+    float w_left_rads  = v_left_cms  / wheel_r_cm;
+    float w_right_rads = v_right_cms / wheel_r_cm;
 
     /* 5. Nap dong thoi xuong 2 kenh PID motor (TIM10 100Hz) */
     uint32_t primask = __get_PRIMASK();

@@ -8,6 +8,7 @@
 #include "pure_pursuit.h"
 #include "arena_map.h"
 #include "robot_config.h"
+#include "runtime_config.h"
 #include <math.h>
 #include <string.h>
 
@@ -34,7 +35,8 @@ static int   s_active_wp_count = 0;
 
 float PurePursuit_CalculateAdaptiveLookahead(float v_target_cms)
 {
-    float ld = PP_LOOKAHEAD_GAIN * fabsf(v_target_cms) + PP_LOOKAHEAD_OFFSET_CM;
+    float ld_offset = (g_cfg.pp_lookahead_offset_cm > 1.0f) ? g_cfg.pp_lookahead_offset_cm : PP_LOOKAHEAD_OFFSET_CM;
+    float ld = PP_LOOKAHEAD_GAIN * fabsf(v_target_cms) + ld_offset;
     if (ld < PP_MIN_LOOKAHEAD_CM) ld = PP_MIN_LOOKAHEAD_CM;
     if (ld > PP_MAX_LOOKAHEAD_CM) ld = PP_MAX_LOOKAHEAD_CM;
     return ld;
@@ -42,7 +44,8 @@ float PurePursuit_CalculateAdaptiveLookahead(float v_target_cms)
 
 void PurePursuit_Init(float lookahead_cm, float base_speed_cms)
 {
-    if (base_speed_cms > ROBOT_MAX_SPEED_CMS) base_speed_cms = ROBOT_MAX_SPEED_CMS;
+    float v_max = (g_cfg.v_max > 1.0f) ? g_cfg.v_max : ROBOT_MAX_SPEED_CMS;
+    if (base_speed_cms > v_max) base_speed_cms = v_max;
     if (base_speed_cms < 0.0f) base_speed_cms = 0.0f;
 
     s_pp.base_speed_cms    = base_speed_cms;
@@ -76,7 +79,8 @@ void PurePursuit_SetLookahead(float lookahead_cm)
 
 void PurePursuit_SetBaseSpeed(float base_speed_cms)
 {
-    if (base_speed_cms > ROBOT_MAX_SPEED_CMS) base_speed_cms = ROBOT_MAX_SPEED_CMS;
+    float v_max = (g_cfg.v_max > 1.0f) ? g_cfg.v_max : ROBOT_MAX_SPEED_CMS;
+    if (base_speed_cms > v_max) base_speed_cms = v_max;
     if (base_speed_cms < 0.0f) base_speed_cms = 0.0f;
     s_pp.base_speed_cms = base_speed_cms;
     if (s_pp.use_adaptive) {
@@ -283,11 +287,14 @@ bool PurePursuit_Compute(RobotPose_t pose,
         s_pp.is_pivoting = false;
     }
 
+    float track_w = (g_cfg.track_width_cm > 1.0f) ? g_cfg.track_width_cm : ROBOT_TRACK_WIDTH_CM;
+    float v_max   = (g_cfg.v_max > 1.0f) ? g_cfg.v_max : ROBOT_MAX_SPEED_CMS;
+
     if (s_pp.is_pivoting) {
         float w = 2.2f * alpha;
         if (w > ROBOT_PIVOT_OMEGA_RADS)  w =  ROBOT_PIVOT_OMEGA_RADS;
         if (w < -ROBOT_PIVOT_OMEGA_RADS) w = -ROBOT_PIVOT_OMEGA_RADS;
-        float half_wb = ROBOT_TRACK_WIDTH_CM * 0.5f;
+        float half_wb = track_w * 0.5f;
 
         s_pp.current_curvature = 0.0f;
         out_cmd->v_linear_cms  = 0.0f;
@@ -304,11 +311,11 @@ bool PurePursuit_Compute(RobotPose_t pose,
     float curvature = (2.0f * dy_local) / dist2;
     s_pp.current_curvature = curvature;
 
-    /* 6. Dieu tiet van toc theo goc cua & gioi han cung 30 cm/s */
+    /* 6. Dieu tiet van toc theo goc cua & gioi han cung v_max */
     float turn_scale = cosf(alpha);
     if (turn_scale < 0.55f) turn_scale = 0.55f;
     float v_cmd = s_pp.base_speed_cms * turn_scale;
-    if (v_cmd > ROBOT_MAX_SPEED_CMS) v_cmd = ROBOT_MAX_SPEED_CMS;
+    if (v_cmd > v_max) v_cmd = v_max;
     if (v_cmd < ROBOT_MIN_CRUISE_SPEED_CMS && s_pp.base_speed_cms >= ROBOT_MIN_CRUISE_SPEED_CMS) {
         v_cmd = ROBOT_MIN_CRUISE_SPEED_CMS;
     }
@@ -321,18 +328,18 @@ bool PurePursuit_Compute(RobotPose_t pose,
         omega *= scale;
     }
 
-    float half_wb = ROBOT_TRACK_WIDTH_CM * 0.5f;
+    float half_wb = track_w * 0.5f;
     float v_left  = v_cmd - omega * half_wb;
     float v_right = v_cmd + omega * half_wb;
 
-    /* 7. Bao hoa van toc banh bao toan do cong: max(|v_L|, |v_R|) <= 30 cm/s */
+    /* 7. Bao hoa van toc banh bao toan do cong: max(|v_L|, |v_R|) <= v_max */
     float peak = fmaxf(fabsf(v_left), fabsf(v_right));
-    if (peak > ROBOT_MAX_WHEEL_SPEED_CMS) {
-        float scale = ROBOT_MAX_WHEEL_SPEED_CMS / peak;
+    if (peak > v_max) {
+        float scale = v_max / peak;
         v_left  *= scale;
         v_right *= scale;
         v_cmd    = 0.5f * (v_left + v_right);
-        omega    = (v_right - v_left) / ROBOT_TRACK_WIDTH_CM;
+        omega    = (v_right - v_left) / track_w;
     }
 
     out_cmd->v_linear_cms = v_cmd;

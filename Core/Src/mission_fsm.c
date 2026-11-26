@@ -11,6 +11,7 @@
 #include "arena_map.h"
 #include "pure_pursuit.h"
 #include "robot_config.h"
+#include "runtime_config.h"
 #include <math.h>
 #include <string.h>
 
@@ -38,8 +39,9 @@ static float            s_pending_obs_y       = 0.0f;
 
 static float clamp_v_target(float v_cms)
 {
+    float v_max = (g_cfg.v_max > 1.0f) ? g_cfg.v_max : ROBOT_MAX_SPEED_CMS;
     if (v_cms < ROBOT_MIN_CRUISE_SPEED_CMS) return ROBOT_MIN_CRUISE_SPEED_CMS;
-    if (v_cms > ROBOT_MAX_SPEED_CMS)        return ROBOT_MAX_SPEED_CMS;
+    if (v_cms > v_max)                      return v_max;
     return v_cms;
 }
 
@@ -106,11 +108,17 @@ static void reset_run_diagnostics(void)
 
 static void init_default_profiles(void)
 {
-    s_profiles[TRACK_SEG_O1_START_NARROW].v_target_cms = V_TARGET_O1_CMS;
-    s_profiles[TRACK_SEG_O2_CORNER].v_target_cms       = V_TARGET_O2_CMS;
-    s_profiles[TRACK_SEG_O3_STRAIGHT].v_target_cms     = V_TARGET_O3_CMS;
-    s_profiles[TRACK_SEG_O4_CORNER_SCAN].v_target_cms  = V_TARGET_O4_CMS;
-    s_profiles[TRACK_SEG_O5_FINISH_GATE].v_target_cms  = V_TARGET_O5_CMS;
+    if (g_cfg.magic == RUNTIME_CFG_MAGIC) {
+        for (int i = 0; i < TRACK_SEG_COUNT; i++) {
+            s_profiles[i].v_target_cms = clamp_v_target(g_cfg.v_target[i]);
+        }
+    } else {
+        s_profiles[TRACK_SEG_O1_START_NARROW].v_target_cms = V_TARGET_O1_CMS;
+        s_profiles[TRACK_SEG_O2_CORNER].v_target_cms       = V_TARGET_O2_CMS;
+        s_profiles[TRACK_SEG_O3_STRAIGHT].v_target_cms     = V_TARGET_O3_CMS;
+        s_profiles[TRACK_SEG_O4_CORNER_SCAN].v_target_cms  = V_TARGET_O4_CMS;
+        s_profiles[TRACK_SEG_O5_FINISH_GATE].v_target_cms  = V_TARGET_O5_CMS;
+    }
     reset_run_diagnostics();
 }
 
@@ -272,7 +280,11 @@ bool Mission_SetSegmentTargetSpeed(TrackSegment_t seg, float v_target_cms)
     if ((int)seg < 0 || seg >= TRACK_SEG_COUNT || !isfinite(v_target_cms)) {
         return false;
     }
-    s_profiles[seg].v_target_cms = clamp_v_target(v_target_cms);
+    float v = clamp_v_target(v_target_cms);
+    s_profiles[seg].v_target_cms = v;
+    if (g_cfg.magic == RUNTIME_CFG_MAGIC) {
+        g_cfg.v_target[seg] = v;
+    }
     return true;
 }
 
@@ -293,6 +305,9 @@ bool Mission_SetUniformTargetSpeed(float v_target_cms)
     float v = clamp_v_target(v_target_cms);
     for (int i = 0; i < TRACK_SEG_COUNT; i++) {
         s_profiles[i].v_target_cms = v;
+        if (g_cfg.magic == RUNTIME_CFG_MAGIC) {
+            g_cfg.v_target[i] = v;
+        }
     }
     return true;
 }
@@ -415,9 +430,10 @@ void Mission_Step(const RobotSensorFrame_t *sensors, RobotDriveCmd_t *out_cmd)
                 break;
             }
 
-            /* Bat 3x VL53L0X quet map tim vat can la ngay khi xe vao vi tri O 3 */
+            /* Bat 3x VL53L0X quet map tim vat can la ngay khi xe vao vi tri quet (mac dinh O 3) */
+            float trig_x = (g_cfg.magic == RUNTIME_CFG_MAGIC) ? g_cfg.scan_trigger_x_cm : FSM_SCAN_TRIGGER_X_CM;
             if (s_state == FSM_RUN_O1_O2 &&
-                pose.x_cm >= FSM_SCAN_TRIGGER_X_CM &&
+                pose.x_cm >= trig_x &&
                 pose.y_cm >= FSM_SCAN_TRIGGER_Y_CM) {
                 s_state = FSM_RUN_SCAN_O3_O5;
             }
@@ -441,9 +457,9 @@ void Mission_Step(const RobotSensorFrame_t *sensors, RobotDriveCmd_t *out_cmd)
                 s_max_seg = seg;
             }
             float v_seg = s_profiles[seg].v_target_cms;
-            if (s_replan_done && seg >= TRACK_SEG_O3_STRAIGHT &&
-                v_seg > V_TARGET_DETOUR_MAX_CMS) {
-                v_seg = V_TARGET_DETOUR_MAX_CMS;
+            float v_det = (g_cfg.v_detour_max > 1.0f) ? g_cfg.v_detour_max : V_TARGET_DETOUR_MAX_CMS;
+            if (s_replan_done && seg >= TRACK_SEG_O3_STRAIGHT && v_seg > v_det) {
+                v_seg = v_det;
             }
             s_active_v_target_cms = v_seg;
             PurePursuit_SetBaseSpeed(v_seg);

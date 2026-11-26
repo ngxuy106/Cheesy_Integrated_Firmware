@@ -44,7 +44,7 @@ extern "C" {
  * 2. GIOI HAN VAN TOC & GIA TOC (MAX SPEED ~ 30 CM/S)
  * ============================================================================ */
 #define ROBOT_MAX_SPEED_CMS             30.0f   /* Van toc tinh tien toi da (cm/s) */
-#define ROBOT_MAX_WHEEL_SPEED_CMS       30.0f   /* Gioi han moi banh <= 30 cm/s    */
+#define ROBOT_MAX_WHEEL_SPEED_CMS       ROBOT_MAX_SPEED_CMS
 #define ROBOT_MAX_WHEEL_RADS            (ROBOT_MAX_WHEEL_SPEED_CMS / ROBOT_WHEEL_RADIUS_CM)
 #define ROBOT_MIN_CRUISE_SPEED_CMS      10.0f   /* Van toc toi thieu khi vao cua   */
 #define ROBOT_MAX_OMEGA_RADS            2.60f   /* Van toc goc toi da (rad/s)      */
@@ -54,6 +54,11 @@ extern "C" {
 #define ROBOT_ACCEL_MAX_CMS2            65.0f   /* 0 -> 30 cm/s trong ~0.46s       */
 #define ROBOT_ALPHA_MAX_RADS2           6.0f    /* Gia toc goc toi da (rad/s^2)    */
 
+/* Mac dinh PI dong co & chieu Yaw IMU */
+#define MOTOR_DEFAULT_KP                200.0f
+#define MOTOR_DEFAULT_KI                0.0f
+#define IMU_DEFAULT_YAW_INVERT          0U
+
 /* Chu ky vong lap dieu khien Tang Cao (50Hz = 20ms; PID dong co TIM10 = 100Hz) */
 #define ROBOT_CTRL_PERIOD_MS            20U
 #define ROBOT_CTRL_DT_S                 0.02f
@@ -61,8 +66,8 @@ extern "C" {
 /* ============================================================================
  * 2B. VAN TOC MONG MUON v_target THEO TUNG DOAN O 1..O 5 (HIEU CHINH SAU MOI LAN TEST)
  * - Gop chung 1 che do chay duy nhat (khong chia Luot 1 / Luot 2, toc do giong nhau).
- * - Sua truc tiep 5 hang so duoi day, HOAC doi live qua BLE "VSEG:<0..5>,<cm/s>"
- *   / CubeMonitor (g_v_target_cms[0..4]).
+ * - Sua truc tiep 5 hang so duoi day, HOAC doi live qua BLE "CFG:<KEY>,<VAL>"
+ *   / "CHINH_THONG_SO.bat" va luu Flash bang "CFG:SAVE".
  * ============================================================================ */
 #define V_TARGET_O1_CMS                 20.0f   /* O 1: Khe hep xuat phat          */
 #define V_TARGET_O2_CMS                 18.0f   /* O 2: Bo cua trai                */
@@ -74,7 +79,7 @@ extern "C" {
 /* Diem bat dau bat quet 3x VL53L0X tim vat can dong: ngay khi vao O 3 (x >= 60 cm) */
 #define FSM_SCAN_TRIGGER_X_CM           60.0f
 #define FSM_SCAN_TRIGGER_Y_CM           55.0f
-#define OBS_SCAN_ZONE_MIN_X_CM          60.0f
+#define OBS_SCAN_ZONE_MIN_X_CM          FSM_SCAN_TRIGGER_X_CM
 
 /* ============================================================================
  * 3. CAM BIEN 3x VL53L0X LASER ToF (TRAI +45 DEG, TRUOC 0 DEG, PHAI -45 DEG)

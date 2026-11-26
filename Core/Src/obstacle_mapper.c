@@ -7,6 +7,7 @@
 
 #include "obstacle_mapper.h"
 #include "arena_map.h"
+#include "runtime_config.h"
 #include <math.h>
 #include <string.h>
 
@@ -132,9 +133,10 @@ ObstacleScanResult_t ObstacleMapper_Update(ObstacleMapper_t *mapper,
             continue;
         }
 
+        uint16_t scan_max_mm = (g_cfg.tof_scan_max_mm >= 150U) ? g_cfg.tof_scan_max_mm : (uint16_t)TOF_SCAN_MAX_MM;
         bool in_scan_range = valids[i] &&
                              (dists_mm[i] >= TOF_MIN_VALID_MM) &&
-                             (dists_mm[i] <= TOF_SCAN_MAX_MM);
+                             (dists_mm[i] <= scan_max_mm);
 
         if (!in_scan_range) {
             rc->streak = 0U;
@@ -170,7 +172,8 @@ ObstacleScanResult_t ObstacleMapper_Update(ObstacleMapper_t *mapper,
         if (cy < 5.0f)   cy = 5.0f;
         if (cy > 115.0f) cy = 115.0f;
 
-        bool in_scan_zone = (!restrict_to_o3_o5) || (cx >= OBS_SCAN_ZONE_MIN_X_CM && cy >= 2.0f);
+        float scan_min_x = (g_cfg.magic == RUNTIME_CFG_MAGIC) ? g_cfg.scan_trigger_x_cm : OBS_SCAN_ZONE_MIN_X_CM;
+        bool in_scan_zone = (!restrict_to_o3_o5) || (cx >= scan_min_x && cy >= 2.0f);
 
         /* Kiem tra kep vat can tinh:
          * - Tia trung coc tinh/tuong se co diem cham (hx,hy) <= 2.6cm hoac tam (cx,cy) <= 3.2cm.

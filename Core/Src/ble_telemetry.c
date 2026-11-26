@@ -201,6 +201,44 @@ static bool parse_int(const char *s, int *out)
     return true;
 }
 
+static bool parse_float_simple(const char *s, float *out)
+{
+    if (s == NULL || *s == '\0' || out == NULL) return false;
+    float sign = 1.0f;
+    if (*s == '-') {
+        sign = -1.0f;
+        s++;
+    } else if (*s == '+') {
+        s++;
+    }
+    if (*s == '\0') return false;
+
+    float int_part = 0.0f;
+    float frac_part = 0.0f;
+    float frac_div = 1.0f;
+    bool seen_digit = false;
+    bool seen_dot = false;
+
+    for (; *s != '\0'; s++) {
+        if (*s >= '0' && *s <= '9') {
+            seen_digit = true;
+            if (!seen_dot) {
+                int_part = int_part * 10.0f + (float)(*s - '0');
+            } else {
+                frac_div *= 10.0f;
+                frac_part += (float)(*s - '0') / frac_div;
+            }
+        } else if (*s == '.' && !seen_dot) {
+            seen_dot = true;
+        } else {
+            return false;
+        }
+    }
+    if (!seen_digit) return false;
+    *out = sign * (int_part + frac_part);
+    return true;
+}
+
 static void do_drive(const char *name, int v, int w, int ms)
 {
     if (abs(v) > BLE_V_MAX_MMPS || abs(w) > BLE_W_MAX_MRADPS ||
@@ -329,6 +367,40 @@ static void handle_line(char *line)
             BLE_Telemetry_SendLine("$ACK,VSEG,%d,%d", a, b);
         } else {
             err("VSEG", "REJECT");
+        }
+    }
+    else if (strcmp(cmd, "CFG") == 0) {
+        if (argc == 1) {
+            str_upper(arg[0]);
+            if (strcmp(arg[0], "GET") != 0 &&
+                strcmp(arg[0], "SAVE") != 0 &&
+                strcmp(arg[0], "RESET") != 0) {
+                err("CFG", "ARG");
+            } else if (cbs.on_cfg_action == NULL) {
+                err("CFG", "NOHANDLER");
+            } else if (cbs.on_cfg_action(arg[0])) {
+                if (strcmp(arg[0], "GET") != 0) {
+                    BLE_Telemetry_SendLine("$ACK,CFG,%s", arg[0]);
+                }
+            } else {
+                err("CFG", "REJECT");
+            }
+        } else if (argc >= 2) {
+            float fval = 0.0f;
+            str_upper(arg[0]);
+            if (!parse_float_simple(arg[1], &fval)) {
+                err("CFG", "ARG");
+            } else if (cbs.on_cfg_set == NULL) {
+                err("CFG", "NOHANDLER");
+            } else if (cbs.on_cfg_set(arg[0], fval)) {
+                char fbuf[16];
+                fmt_fixed(fbuf, sizeof(fbuf), fval, 2);
+                BLE_Telemetry_SendLine("$ACK,CFG,%s,%s", arg[0], fbuf);
+            } else {
+                err("CFG", "REJECT");
+            }
+        } else {
+            err("CFG", "ARG");
         }
     }
     else if (strcmp(cmd, "ZERO") == 0) {

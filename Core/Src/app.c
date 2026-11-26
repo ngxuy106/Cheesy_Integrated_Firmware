@@ -14,11 +14,14 @@
 #include "app.h"
 #include "ram_monitor.h"
 #include "robot_config.h"
+#include "runtime_config.h"
 #include "robot_interface.h"
 #include "robot_hw_bridge.h"
 #include "mission_fsm.h"
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* ================= External HAL handles (from CubeMX main.c) ================= */
 extern ADC_HandleTypeDef  hadc1;
@@ -51,11 +54,11 @@ uint16_t d_right = VL53L0X_OUT_OF_RANGE;
 Motor_Handle_t g_m0; /* Left  (TIM2, TIM4_CH3, PB12/PB13) */
 Motor_Handle_t g_m1; /* Right (TIM3, TIM4_CH4, PB14/PB15) */
 
-/* Tham so PI dong co (giu nguyen mac dinh cua ban ban, co the tinh chinh qua CubeMonitor) */
-volatile float g_m0_kp = 200.0f;
-volatile float g_m0_ki = 0.0f;
-volatile float g_m1_kp = 200.0f;
-volatile float g_m1_ki = 0.0f;
+/* Tham so PI dong co (giu nguyen mac dinh cua ban ban, co the tinh chinh qua CubeMonitor / BLE) */
+volatile float g_m0_kp = MOTOR_DEFAULT_KP;
+volatile float g_m0_ki = MOTOR_DEFAULT_KI;
+volatile float g_m1_kp = MOTOR_DEFAULT_KP;
+volatile float g_m1_ki = MOTOR_DEFAULT_KI;
 
 /* Van toc mong muon v_target cho O 1..O 5 (chinh live qua CubeMonitor hoac BLE VSEG) */
 volatile float g_v_target_cms[TRACK_SEG_COUNT] = {
@@ -111,6 +114,9 @@ static bool on_ble_mode(uint8_t run_id);
 static void on_ble_zero(void);
 static void on_ble_stop(void);
 static bool on_ble_vtarget(uint8_t seg_1based, int16_t v_cms);
+static bool on_ble_cfg_set(const char *key, float value);
+static bool on_ble_cfg_action(const char *action);
+static void apply_runtime_config_to_hw(void);
 
 static const BLE_Callbacks_t ble_cbs = {
     .on_drive        = on_ble_drive,
@@ -118,13 +124,25 @@ static const BLE_Callbacks_t ble_cbs = {
     .on_set_mode     = on_ble_mode,
     .on_zero         = on_ble_zero,
     .on_stop         = on_ble_stop,
-    .on_set_vtarget  = on_ble_vtarget
+    .on_set_vtarget  = on_ble_vtarget,
+    .on_cfg_set      = on_ble_cfg_set,
+    .on_cfg_action   = on_ble_cfg_action
 };
 
 /* ================= Init & Main Loop ================= */
 
 void app_init(void)
 {
+    RuntimeConfig_Init();
+    g_m0_kp = g_cfg.motor_kp;
+    g_m0_ki = g_cfg.motor_ki;
+    g_m1_kp = g_cfg.motor_kp;
+    g_m1_ki = g_cfg.motor_ki;
+    for (uint8_t i = 0U; i < TRACK_SEG_COUNT; i++) {
+        g_v_target_cms[i]      = g_cfg.v_target[i];
+        s_prev_v_target_cms[i] = g_cfg.v_target[i];
+    }
+
     irq_priority_config();
     motor_config();
     battery_config();
@@ -215,6 +233,8 @@ void app_loop(void)
         g_m1.pi.Kp = g_m1_kp;
         g_m1.pi.Ki = g_m1_ki;
         __set_PRIMASK(primask);
+        g_cfg.motor_kp = g_m0_kp;
+        g_cfg.motor_ki = g_m0_ki;
 
         for (uint8_t i = 0U; i < TRACK_SEG_COUNT; i++) {
             float cur_v = g_v_target_cms[i];
@@ -371,6 +391,40 @@ static bool on_ble_mode(uint8_t run_id)
     return true;
 }
 
+static void apply_runtime_config_to_hw(void)
+{
+    float wheel_r_cm = (g_cfg.wheel_diam_cm > 0.5f) ? (g_cfg.wheel_diam_cm * 0.5f) : ROBOT_WHEEL_RADIUS_CM;
+    float max_rads   = g_cfg.v_max / wheel_r_cm;
+
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    g_m0_kp = g_cfg.motor_kp;
+    g_m0_ki = g_cfg.motor_ki;
+    g_m1_kp = g_cfg.motor_kp;
+    g_m1_ki = g_cfg.motor_ki;
+    g_m0.pi.Kp             = g_cfg.motor_kp;
+    g_m0.pi.Ki             = g_cfg.motor_ki;
+    g_m0.pi.max_speed_rads = max_rads;
+    g_m0.config.pulses_per_rev   = g_cfg.encoder_ppr;
+    g_m0.config.wheel_diameter_m = g_cfg.wheel_diam_cm * 0.01f;
+
+    g_m1.pi.Kp             = g_cfg.motor_kp;
+    g_m1.pi.Ki             = g_cfg.motor_ki;
+    g_m1.pi.max_speed_rads = max_rads;
+    g_m1.config.pulses_per_rev   = g_cfg.encoder_ppr;
+    g_m1.config.wheel_diameter_m = g_cfg.wheel_diam_cm * 0.01f;
+    __set_PRIMASK(primask);
+
+    g_imu.yaw_invert = g_cfg.yaw_invert;
+
+    for (uint8_t i = 0U; i < TRACK_SEG_COUNT; i++) {
+        (void)Mission_SetSegmentTargetSpeed((TrackSegment_t)i, g_cfg.v_target[i]);
+        float clamped = Mission_GetSegmentTargetSpeed((TrackSegment_t)i);
+        g_v_target_cms[i]      = clamped;
+        s_prev_v_target_cms[i] = clamped;
+    }
+}
+
 static bool on_ble_vtarget(uint8_t seg_1based, int16_t v_cms)
 {
     if (seg_1based == 0U) {
@@ -381,6 +435,7 @@ static bool on_ble_vtarget(uint8_t seg_1based, int16_t v_cms)
         for (uint8_t i = 0U; i < TRACK_SEG_COUNT; i++) {
             g_v_target_cms[i]      = clamped;
             s_prev_v_target_cms[i] = clamped;
+            g_cfg.v_target[i]      = clamped;
         }
         return true;
     }
@@ -392,8 +447,90 @@ static bool on_ble_vtarget(uint8_t seg_1based, int16_t v_cms)
         float clamped = Mission_GetSegmentTargetSpeed(seg);
         g_v_target_cms[seg]      = clamped;
         s_prev_v_target_cms[seg] = clamped;
+        g_cfg.v_target[seg]      = clamped;
         return true;
     }
+    return false;
+}
+
+static bool on_ble_cfg_set(const char *key, float value)
+{
+    if (!RuntimeConfig_SetParam(key, value)) {
+        return false;
+    }
+    apply_runtime_config_to_hw();
+    return true;
+}
+
+static void fmt_fp(char *dst, size_t size, float v, uint8_t decimals)
+{
+    int32_t scale = (decimals == 2U) ? 100 : ((decimals == 1U) ? 10 : 1);
+    int32_t q = (int32_t)(v * (float)scale + (v >= 0.0f ? 0.5f : -0.5f));
+    uint32_t a = (q < 0) ? (uint32_t)(-q) : (uint32_t)q;
+    const char *sign = (q < 0) ? "-" : "";
+    if (decimals == 2U) {
+        snprintf(dst, size, "%s%lu.%02lu", sign, (unsigned long)(a / 100u), (unsigned long)(a % 100u));
+    } else if (decimals == 1U) {
+        snprintf(dst, size, "%s%lu.%lu", sign, (unsigned long)(a / 10u), (unsigned long)(a % 10u));
+    } else {
+        snprintf(dst, size, "%s%lu", sign, (unsigned long)a);
+    }
+}
+
+static bool on_ble_cfg_action(const char *action)
+{
+    if (action == NULL) return false;
+
+    if (strcmp(action, "GET") == 0) {
+        char b0[16], b1[16], b2[16], b3[16], b4[16], b5[16], b6[16], b7[16], b8[16];
+        fmt_fp(b0, sizeof(b0), g_cfg.v_target[0], 1U);
+        fmt_fp(b1, sizeof(b1), g_cfg.v_target[1], 1U);
+        fmt_fp(b2, sizeof(b2), g_cfg.v_target[2], 1U);
+        fmt_fp(b3, sizeof(b3), g_cfg.v_target[3], 1U);
+        fmt_fp(b4, sizeof(b4), g_cfg.v_target[4], 1U);
+        fmt_fp(b5, sizeof(b5), g_cfg.v_detour_max, 1U);
+        fmt_fp(b6, sizeof(b6), g_cfg.v_max, 1U);
+        fmt_fp(b7, sizeof(b7), g_cfg.accel_max_cms2, 1U);
+        (void)BLE_Telemetry_SendLine("$CFG1,V1=%s,V2=%s,V3=%s,V4=%s,V5=%s,VDET=%s,VMAX=%s,ACC=%s",
+                                     b0, b1, b2, b3, b4, b5, b6, b7);
+
+        fmt_fp(b0, sizeof(b0), g_cfg.motor_kp, 1U);
+        fmt_fp(b1, sizeof(b1), g_cfg.motor_ki, 2U);
+        fmt_fp(b2, sizeof(b2), g_cfg.wheel_diam_cm, 2U);
+        fmt_fp(b3, sizeof(b3), g_cfg.track_width_cm, 2U);
+        fmt_fp(b4, sizeof(b4), g_cfg.encoder_ppr, 0U);
+        fmt_fp(b5, sizeof(b5), g_cfg.scan_trigger_x_cm, 1U);
+        fmt_fp(b6, sizeof(b6), g_cfg.pp_lookahead_offset_cm, 1U);
+        snprintf(b7, sizeof(b7), "%u", (unsigned)g_cfg.tof_scan_max_mm);
+        snprintf(b8, sizeof(b8), "%u", (unsigned)g_cfg.yaw_invert);
+        (void)BLE_Telemetry_SendLine("$CFG2,KP=%s,KI=%s,WD=%s,WB=%s,PPR=%s,TOF=%s,SCANX=%s,LD=%s,YAWINV=%s",
+                                     b0, b1, b2, b3, b4, b7, b5, b6, b8);
+        (void)BLE_Telemetry_SendLine("$CFG,END");
+        return true;
+    }
+
+    if (strcmp(action, "SAVE") == 0) {
+        FSMState_t st = Mission_GetState();
+        bool safe_state = (st == FSM_IDLE || st == FSM_MISSION_FINISHED || st == FSM_EMERGENCY_STOP);
+        if (!safe_state || s_manual_v_mmps != 0 || s_manual_w_mradps != 0) {
+            return false;
+        }
+        (void)motor_disable(&g_m0);
+        (void)motor_disable(&g_m1);
+        (void)HAL_TIM_Base_Stop_IT(&htim10);
+        bool ok = RuntimeConfig_SaveToFlash(&g_cfg);
+        (void)HAL_TIM_Base_Start_IT(&htim10);
+        (void)motor_enable(&g_m0);
+        (void)motor_enable(&g_m1);
+        return ok;
+    }
+
+    if (strcmp(action, "RESET") == 0) {
+        RuntimeConfig_LoadDefaults(&g_cfg);
+        apply_runtime_config_to_hw();
+        return true;
+    }
+
     return false;
 }
 
@@ -466,6 +603,9 @@ static void irq_priority_config(void)
 
 static void motor_config(void)
 {
+    float wheel_r_cm = (g_cfg.wheel_diam_cm > 0.5f) ? (g_cfg.wheel_diam_cm * 0.5f) : ROBOT_WHEEL_RADIUS_CM;
+    float max_rads   = g_cfg.v_max / wheel_r_cm;
+
     Motor_Config_t m0_cfg = {
         .htim_enc            = &htim2,
         .is_reversed_encoder = false,
@@ -476,8 +616,8 @@ static void motor_config(void)
         .dir_port_b          = GPIOB,
         .dir_pin_b           = GPIO_PIN_13,
         .is_reversed_dir     = false,
-        .pulses_per_rev      = ROBOT_ENCODER_PPR,
-        .wheel_diameter_m    = ROBOT_WHEEL_DIAM_M,
+        .pulses_per_rev      = g_cfg.encoder_ppr,
+        .wheel_diameter_m    = g_cfg.wheel_diam_cm * 0.01f,
         .control_period_s    = 0.01f
     };
     Motor_PID_Params_t m0_pid_cfg = {
@@ -485,7 +625,7 @@ static void motor_config(void)
         .Ki             = g_m0_ki,
         .max_integral   = 200.0f,
         .max_output     = 999.0f,
-        .max_speed_rads = ROBOT_MAX_WHEEL_RADS
+        .max_speed_rads = max_rads
     };
 
     Motor_Config_t m1_cfg = {
@@ -498,8 +638,8 @@ static void motor_config(void)
         .dir_port_b          = GPIOB,
         .dir_pin_b           = GPIO_PIN_15,
         .is_reversed_dir     = false,
-        .pulses_per_rev      = ROBOT_ENCODER_PPR,
-        .wheel_diameter_m    = ROBOT_WHEEL_DIAM_M,
+        .pulses_per_rev      = g_cfg.encoder_ppr,
+        .wheel_diameter_m    = g_cfg.wheel_diam_cm * 0.01f,
         .control_period_s    = 0.01f
     };
     Motor_PID_Params_t m1_pid_cfg = {
@@ -507,7 +647,7 @@ static void motor_config(void)
         .Ki             = g_m1_ki,
         .max_integral   = 520.0f,
         .max_output     = 999.0f,
-        .max_speed_rads = ROBOT_MAX_WHEEL_RADS
+        .max_speed_rads = max_rads
     };
 
     (void)motor_init(&g_m0, &m0_cfg, &m0_pid_cfg);
@@ -528,6 +668,7 @@ static void imu_config(void)
     s_imu_calib_ok = false;
     IMU_Status imu_st = IMU_Init(&g_imu, &hi2c2, IMU_ADDR_AD0_LOW,
                                  GPIOB, GPIO_PIN_10, GPIOB, GPIO_PIN_3);
+    g_imu.yaw_invert = g_cfg.yaw_invert;
     if (imu_st == IMU_OK) {
         for (uint8_t attempt = 0U; attempt < 2U; attempt++) {
             HAL_Delay(300);
