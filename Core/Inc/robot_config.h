@@ -106,9 +106,20 @@ extern "C" {
 #define OBS_STATIC_FILTER_TOL_CM        OBS_STATIC_CENTER_TOL_CM
 #define OBS_CLUSTER_RADIUS_CM           8.0f    /* Ban kinh gom cum 3 khung lien       */
 #define OBS_CONFIRM_FRAMES              3U      /* So khung moi lien tiep xac nhan     */
+#define OBS_CONFIRM_DUAL_RAY_FRAMES     2U      /* So khung xac nhan nhanh khi 2 tia cung thay */
 #define OBS_DEDUP_RADIUS_CM             11.0f   /* Tranh nap trung 1 vat can           */
+#define OBS_REFINE_RADIUS_CM            12.0f   /* Ban kinh cap nhat hit bbox coc da biet */
+#define OBS_REFINE_MIN_SHIFT_CM         1.0f    /* Dich chuyen toi thieu de kich hoat replan */
+#define OBS_FREE_RAY_MARGIN_CM          2.0f    /* Tru hao truoc mat vat can khi carve */
+#define OBS_MAX_CARVE_SHIFT_CM          5.0f    /* Gioi han dich tam do free-ray carving */
+#define OBS_CARVE_OOR_MIN_FRAMES        2U      /* So khung OOR lien tiep moi cho phep carve */
+#define OBS_CARVE_OOR_MIN_DIST_CM       5.0f    /* Cu ly cam bien toi thieu khi carve OOR (<20mm trap) */
+#define OBS_STALE_RESET_TICKS           6U      /* ~120ms stale lien tiep -> xoa streak */
+#define OBS_MAX_CARVE_RAYS              8U      /* So tia carve luu ben vung cho moi coc */
 #define OBS_MAX_DYNAMIC                 4U      /* Toi da 4 vat can dong               */
-#define OBS_DYN_INFLATE_CM              6.75f   /* Noi rong C-Space cho coc dong       */
+#define OBS_DYN_INFLATE_SAFE_CM         9.0f    /* Noi rong uu tien an toan cho coc dong */
+#define OBS_DYN_INFLATE_MIN_CM          6.75f   /* Noi rong toi thieu khi qua khe hep O 5 */
+#define OBS_DYN_INFLATE_CM              OBS_DYN_INFLATE_MIN_CM /* Tuong thich nguoc API cu */
 #define TOF_STALE_TIMEOUT_MS            120U    /* Qua 120ms khong co mau moi -> vo hieu */
 
 /* ============================================================================

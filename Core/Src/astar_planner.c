@@ -293,6 +293,23 @@ void AStar_AddDynamicObstacle(float obs_x, float obs_y)
     AStar_AddDynamicObstacleBox(obs_x, obs_y, TOF_OBS_HALF_SIZE_CM, OBS_DYN_INFLATE_CM);
 }
 
+void AStar_RebuildDynamicCSpace(const ObstacleMapper_t *mapper, float inflate_cm)
+{
+    AStar_ResetCSpace();
+    if (mapper == NULL) {
+        return;
+    }
+    uint8_t cnt = (mapper->count <= OBS_MAX_DYNAMIC) ? mapper->count : (uint8_t)OBS_MAX_DYNAMIC;
+    for (uint8_t i = 0U; i < cnt; i++) {
+        if (!mapper->obstacles[i].active) {
+            continue;
+        }
+        AStar_AddDynamicObstacleBox(mapper->obstacles[i].center_x_cm,
+                                    mapper->obstacles[i].center_y_cm,
+                                    TOF_OBS_HALF_SIZE_CM, inflate_cm);
+    }
+}
+
 bool AStar_IsDynamicFree(float x_cm, float y_cm)
 {
     if (!s_cspace_inited) {
@@ -314,6 +331,61 @@ bool AStar_IsPathBlocked(const Waypoint_t *wps, int wp_count, int from_idx)
     if (from_idx >= wp_count - 1) return false;
 
     for (int i = from_idx; i < wp_count - 1; i++) {
+        if (!is_line_clear(wps[i].x, wps[i].y, wps[i + 1].x, wps[i + 1].y)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool AStar_IsRemainingPathBlocked(float pose_x, float pose_y,
+                                  const Waypoint_t *wps, int wp_count, int current_wp_idx)
+{
+    if (wps == NULL || wp_count < 2 || !s_cspace_inited ||
+        !isfinite(pose_x) || !isfinite(pose_y)) {
+        return false;
+    }
+
+    int idx = current_wp_idx;
+    if (idx < 0) idx = 0;
+    if (idx >= wp_count - 1) {
+        return false;
+    }
+
+    while (idx < wp_count - 2) {
+        float seg_dx = wps[idx + 1].x - wps[idx].x;
+        float seg_dy = wps[idx + 1].y - wps[idx].y;
+        float p_dx   = pose_x - wps[idx + 1].x;
+        float p_dy   = pose_y - wps[idx + 1].y;
+        if ((p_dx * seg_dx + p_dy * seg_dy) >= 0.0f) {
+            idx++;
+        } else {
+            break;
+        }
+    }
+
+    float ax = wps[idx].x;
+    float ay = wps[idx].y;
+    float bx = wps[idx + 1].x;
+    float by = wps[idx + 1].y;
+    float vx = bx - ax;
+    float vy = by - ay;
+    float len2 = vx * vx + vy * vy;
+
+    if (len2 >= 1e-4f) {
+        float t_proj = ((pose_x - ax) * vx + (pose_y - ay) * vy) / len2;
+        if (t_proj < 0.0f) t_proj = 0.0f;
+        if (t_proj > 1.0f) t_proj = 1.0f;
+        float px = ax + t_proj * vx;
+        float py = ay + t_proj * vy;
+        if (!is_line_clear(px, py, bx, by)) {
+            return true;
+        }
+    } else if (!is_line_clear(bx, by, bx, by)) {
+        return true;
+    }
+
+    for (int i = idx + 1; i < wp_count - 1; i++) {
         if (!is_line_clear(wps[i].x, wps[i].y, wps[i + 1].x, wps[i + 1].y)) {
             return true;
         }

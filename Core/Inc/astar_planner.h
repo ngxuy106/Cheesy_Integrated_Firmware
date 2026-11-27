@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "arena_map.h"
+#include "obstacle_mapper.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,6 +36,9 @@ void AStar_AddDynamicObstacleBox(float center_x, float center_y,
 /* Them vat can dong mac dinh 10x10cm + noi rong C-Space */
 void AStar_AddDynamicObstacle(float obs_x, float obs_y);
 
+/* Dat lai C-Space va ve lai toan bo vat can dong dang hoat dong voi muc noi rong inflate_cm */
+void AStar_RebuildDynamicCSpace(const ObstacleMapper_t *mapper, float inflate_cm);
+
 /* Tim duong nghiem ngat (Start & Goal phai nam trong o CELL_FREE) */
 int AStar_PlanPath(float start_x, float start_y, float goal_x, float goal_y,
                    Waypoint_t *out_wps, int max_wps);
@@ -49,6 +53,10 @@ bool AStar_IsDynamicFree(float x_cm, float y_cm);
 
 /* Kiem tra quy dao con lai tu from_idx co bi chan boi vat can dong moi nap khong */
 bool AStar_IsPathBlocked(const Waypoint_t *wps, int wp_count, int from_idx);
+
+/* Kiem tra quy dao con lai tinh tu vi tri hien tai cua xe (loai bo doan da di qua phia sau pose) */
+bool AStar_IsRemainingPathBlocked(float pose_x, float pose_y,
+                                  const Waypoint_t *wps, int wp_count, int current_wp_idx);
 
 #ifdef __cplusplus
 }

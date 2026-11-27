@@ -20,6 +20,7 @@ static FSMState_t       s_prev_run_state      = FSM_RUN_O1_O2;
 static EKF_Localizer_t  s_ekf;
 static ObstacleMapper_t s_mapper;
 static Waypoint_t       s_path[MAX_WAYPOINTS];
+static Waypoint_t       s_plan_buf[MAX_WAYPOINTS];
 static int              s_total_wps           = 0;
 static SegmentProfile_t s_profiles[TRACK_SEG_COUNT];
 
@@ -33,6 +34,7 @@ static TrackSegment_t   s_max_seg             = TRACK_SEG_O1_START_NARROW;
 static bool             s_run_started         = false;
 static float            s_active_v_target_cms = V_TARGET_O1_CMS;
 static bool             s_replan_done         = false;
+static float            s_dyn_inflate_cm      = OBS_DYN_INFLATE_SAFE_CM;
 static bool             s_has_pending_obs     = false;
 static float            s_pending_obs_x       = 0.0f;
 static float            s_pending_obs_y       = 0.0f;
@@ -59,42 +61,93 @@ static float compute_path_len(const Waypoint_t *wps, int n)
     return total;
 }
 
-static int plan_to_finish_gate(float start_x, float start_y, bool allow_snap)
+static int plan_to_finish_gate(float start_x, float start_y, bool allow_snap,
+                               Waypoint_t *out_path, int max_wps)
 {
-    static const float k_goals[5][2] = {
+    static const float k_goals[7][2] = {
         { ROBOT_GOAL_X, ROBOT_GOAL_Y },
         { 130.0f,       ROBOT_GOAL_Y },
         { 166.0f,       ROBOT_GOAL_Y },
         { 138.0f,       ROBOT_GOAL_Y },
-        { 158.0f,       ROBOT_GOAL_Y }
+        { 158.0f,       ROBOT_GOAL_Y },
+        { 129.0f,       ROBOT_GOAL_Y },
+        { 170.0f,       ROBOT_GOAL_Y }
     };
 
     uint8_t dyn_cnt = ObstacleMapper_GetCount(&s_mapper);
     if (dyn_cnt == 0U) {
         return AStar_PlanPathSafe(start_x, start_y,
                                   ROBOT_GOAL_X, ROBOT_GOAL_Y,
-                                  s_path, MAX_WAYPOINTS, allow_snap);
+                                  out_path, max_wps, allow_snap);
     }
 
     static Waypoint_t s_cand_path[MAX_WAYPOINTS];
     int   best_wps = 0;
     float best_len = 1e9f;
 
-    for (int k = 0; k < 5; k++) {
+    for (int k = 0; k < 7; k++) {
         int wps = AStar_PlanPathSafe(start_x, start_y,
                                      k_goals[k][0], k_goals[k][1],
                                      s_cand_path, MAX_WAYPOINTS, allow_snap);
-        if (wps >= 2) {
+        if (wps >= 2 && wps <= max_wps) {
             float len = compute_path_len(s_cand_path, wps);
             if (k == 0) len -= 4.0f;
             if (len < best_len) {
                 best_len = len;
                 best_wps = wps;
-                memcpy(s_path, s_cand_path, (size_t)wps * sizeof(Waypoint_t));
+                memcpy(out_path, s_cand_path, (size_t)wps * sizeof(Waypoint_t));
             }
         }
     }
     return best_wps;
+}
+
+static int plan_with_two_tier_inflation(float start_x, float start_y, bool allow_snap,
+                                        Waypoint_t *out_path, int max_wps)
+{
+    uint8_t dyn_cnt = ObstacleMapper_GetCount(&s_mapper);
+    if (dyn_cnt == 0U) {
+        AStar_ResetCSpace();
+        s_dyn_inflate_cm = OBS_DYN_INFLATE_SAFE_CM;
+        return plan_to_finish_gate(start_x, start_y, allow_snap, out_path, max_wps);
+    }
+
+    AStar_RebuildDynamicCSpace(&s_mapper, OBS_DYN_INFLATE_SAFE_CM);
+    int wps = plan_to_finish_gate(start_x, start_y, allow_snap, out_path, max_wps);
+    if (wps >= 2) {
+        s_dyn_inflate_cm = OBS_DYN_INFLATE_SAFE_CM;
+        return wps;
+    }
+
+    AStar_RebuildDynamicCSpace(&s_mapper, OBS_DYN_INFLATE_MIN_CM);
+    wps = plan_to_finish_gate(start_x, start_y, allow_snap, out_path, max_wps);
+    if (wps >= 2) {
+        s_dyn_inflate_cm = OBS_DYN_INFLATE_MIN_CM;
+    }
+    return wps;
+}
+
+static bool paths_equal(const Waypoint_t *a, int na, const Waypoint_t *b, int nb)
+{
+    if (na != nb || na <= 0) {
+        return false;
+    }
+    for (int i = 0; i < na; i++) {
+        if (fabsf(a[i].x - b[i].x) > 1e-2f || fabsf(a[i].y - b[i].y) > 1e-2f) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static void commit_planned_path(const Waypoint_t *new_path, int new_wps, bool reset_pp_if_changed)
+{
+    bool changed = !paths_equal(s_path, s_total_wps, new_path, new_wps);
+    memcpy(s_path, new_path, (size_t)new_wps * sizeof(Waypoint_t));
+    s_total_wps = new_wps;
+    if (reset_pp_if_changed && changed) {
+        PurePursuit_Reset();
+    }
 }
 
 static void reset_run_diagnostics(void)
@@ -133,13 +186,13 @@ static bool start_run(const RobotSensorFrame_t *sensors)
     ObstacleMapper_Init(&s_mapper);
 
     if (s_has_pending_obs) {
-        if (ObstacleMapper_RegisterManual(&s_mapper, s_pending_obs_x, s_pending_obs_y)) {
-            AStar_AddDynamicObstacle(s_pending_obs_x, s_pending_obs_y);
-        }
+        (void)ObstacleMapper_RegisterManual(&s_mapper, s_pending_obs_x, s_pending_obs_y);
         s_has_pending_obs = false;
     }
 
-    s_total_wps = plan_to_finish_gate(ROBOT_START_X, ROBOT_START_Y, false);
+    s_dyn_inflate_cm = OBS_DYN_INFLATE_SAFE_CM;
+    s_total_wps = plan_with_two_tier_inflation(ROBOT_START_X, ROBOT_START_Y, false,
+                                               s_path, MAX_WAYPOINTS);
     if (s_total_wps < 2) {
         s_state = FSM_EMERGENCY_STOP;
         return false;
@@ -159,28 +212,30 @@ static bool start_run(const RobotSensorFrame_t *sensors)
     return true;
 }
 
-static void enter_recovery_backup(RobotPose_t pose, uint16_t front_mm)
+static void enter_recovery_backup(RobotPose_t pose, uint16_t front_mm, bool register_front_obs)
 {
     if (s_recovery_count >= ROBOT_MAX_RECOVERIES_PER_LAP) {
         s_state = FSM_EMERGENCY_STOP;
         return;
     }
 
-    float dist_cm = (front_mm >= TOF_MIN_VALID_MM && front_mm < TOF_OUT_OF_RANGE_MM)
-                        ? ((float)front_mm * 0.1f)
-                        : 7.0f;
-    float cos_th = cosf(pose.theta_rad);
-    float sin_th = sinf(pose.theta_rad);
-    float hx = pose.x_cm + (TOF_OFFSET_FRONT_CM + dist_cm) * cos_th;
-    float hy = pose.y_cm + (TOF_OFFSET_FRONT_CM + dist_cm) * sin_th;
-    float cx = hx + TOF_OBS_HALF_SIZE_CM * cos_th;
-    float cy = hy + TOF_OBS_HALF_SIZE_CM * sin_th;
+    if (register_front_obs) {
+        float dist_cm = (front_mm >= TOF_MIN_VALID_MM && front_mm < TOF_OUT_OF_RANGE_MM)
+                            ? ((float)front_mm * 0.1f)
+                            : 7.0f;
+        float cos_th = cosf(pose.theta_rad);
+        float sin_th = sinf(pose.theta_rad);
+        float hx = pose.x_cm + (TOF_OFFSET_FRONT_CM + dist_cm) * cos_th;
+        float hy = pose.y_cm + (TOF_OFFSET_FRONT_CM + dist_cm) * sin_th;
+        float cx = hx + TOF_OBS_HALF_SIZE_CM * cos_th;
+        float cy = hy + TOF_OBS_HALF_SIZE_CM * sin_th;
 
-    bool not_static = (Map_DistToStaticObstacleCm(hx, hy) > OBS_STATIC_HIT_TOL_CM) &&
-                      (Map_DistToStaticObstacleCm(cx, cy) > OBS_STATIC_CENTER_TOL_CM);
-    if (not_static) {
-        if (ObstacleMapper_RegisterManual(&s_mapper, cx, cy)) {
-            AStar_AddDynamicObstacle(cx, cy);
+        bool not_static = (Map_DistToStaticObstacleCm(hx, hy) > OBS_STATIC_HIT_TOL_CM) &&
+                          (Map_DistToStaticObstacleCm(cx, cy) > OBS_STATIC_CENTER_TOL_CM);
+        if (not_static) {
+            if (ObstacleMapper_RegisterManual(&s_mapper, cx, cy)) {
+                AStar_RebuildDynamicCSpace(&s_mapper, s_dyn_inflate_cm);
+            }
         }
     }
 
@@ -195,21 +250,56 @@ static void enter_recovery_backup(RobotPose_t pose, uint16_t front_mm)
 
 static bool handle_dynamic_replan(RobotPose_t pose, const ObstacleScanResult_t *scan)
 {
-    if (!scan->new_obstacle_found) {
+    if (scan->new_obstacle_found) {
+        int new_wps = plan_with_two_tier_inflation(pose.x_cm, pose.y_cm, true,
+                                                   s_plan_buf, MAX_WAYPOINTS);
+        if (new_wps >= 2) {
+            commit_planned_path(s_plan_buf, new_wps, true);
+            s_replan_done = true;
+            return true;
+        }
+
+        enter_recovery_backup(pose, TOF_EMERGENCY_GUARD_MM, false);
+        return false;
+    }
+
+    if (!scan->obstacle_refined) {
         return true;
     }
 
-    AStar_AddDynamicObstacle(scan->new_obs_x_cm, scan->new_obs_y_cm);
-
-    int new_wps = plan_to_finish_gate(pose.x_cm, pose.y_cm, true);
-    if (new_wps >= 2) {
-        s_total_wps   = new_wps;
-        s_replan_done = true;
-        PurePursuit_Reset();
+    AStar_RebuildDynamicCSpace(&s_mapper, s_dyn_inflate_cm);
+    PurePursuit_t pp = PurePursuit_GetStatus();
+    if (!AStar_IsRemainingPathBlocked(pose.x_cm, pose.y_cm, s_path, s_total_wps, pp.current_wp_idx)) {
         return true;
     }
 
-    enter_recovery_backup(pose, TOF_EMERGENCY_GUARD_MM);
+    if (s_dyn_inflate_cm > (OBS_DYN_INFLATE_MIN_CM + 0.05f)) {
+        int safe_wps = plan_to_finish_gate(pose.x_cm, pose.y_cm, true,
+                                           s_plan_buf, MAX_WAYPOINTS);
+        if (safe_wps >= 2) {
+            commit_planned_path(s_plan_buf, safe_wps, true);
+            s_dyn_inflate_cm = OBS_DYN_INFLATE_SAFE_CM;
+            s_replan_done    = true;
+            return true;
+        }
+
+        AStar_RebuildDynamicCSpace(&s_mapper, OBS_DYN_INFLATE_MIN_CM);
+        s_dyn_inflate_cm = OBS_DYN_INFLATE_MIN_CM;
+        if (!AStar_IsRemainingPathBlocked(pose.x_cm, pose.y_cm, s_path, s_total_wps, pp.current_wp_idx)) {
+            return true;
+        }
+    }
+
+    int min_wps = plan_to_finish_gate(pose.x_cm, pose.y_cm, true,
+                                      s_plan_buf, MAX_WAYPOINTS);
+    if (min_wps >= 2) {
+        commit_planned_path(s_plan_buf, min_wps, true);
+        s_dyn_inflate_cm = OBS_DYN_INFLATE_MIN_CM;
+        s_replan_done    = true;
+        return true;
+    }
+
+    enter_recovery_backup(pose, TOF_EMERGENCY_GUARD_MM, false);
     return false;
 }
 
@@ -250,6 +340,7 @@ static void reset_common_state(void)
     s_run_started         = false;
     s_active_v_target_cms = s_profiles[TRACK_SEG_O1_START_NARROW].v_target_cms;
     s_replan_done         = false;
+    s_dyn_inflate_cm      = OBS_DYN_INFLATE_SAFE_CM;
     s_has_pending_obs     = false;
 }
 
@@ -333,13 +424,12 @@ bool Mission_InjectObstacle(float obs_x_cm, float obs_y_cm)
     }
 
     if (ObstacleMapper_RegisterManual(&s_mapper, obs_x_cm, obs_y_cm)) {
-        AStar_AddDynamicObstacle(obs_x_cm, obs_y_cm);
         RobotPose_t pose = EKF_GetPose(&s_ekf);
-        int new_wps = plan_to_finish_gate(pose.x_cm, pose.y_cm, true);
+        int new_wps = plan_with_two_tier_inflation(pose.x_cm, pose.y_cm, true,
+                                                   s_plan_buf, MAX_WAYPOINTS);
         if (new_wps >= 2) {
-            s_total_wps   = new_wps;
+            commit_planned_path(s_plan_buf, new_wps, true);
             s_replan_done = true;
-            PurePursuit_Reset();
             return true;
         }
     }
@@ -443,7 +533,7 @@ void Mission_Step(const RobotSensorFrame_t *sensors, RobotDriveCmd_t *out_cmd)
                 ObstacleMapper_Update(&s_mapper, &pose, sensors, scan_dyn, true);
 
             if (scan.front_emergency) {
-                enter_recovery_backup(pose, sensors->tof_front_mm);
+                enter_recovery_backup(pose, sensors->tof_front_mm, true);
                 output_stop(out_cmd, false);
                 break;
             }
@@ -481,7 +571,7 @@ void Mission_Step(const RobotSensorFrame_t *sensors, RobotDriveCmd_t *out_cmd)
                     fabsf(pose.v_cms) < 1.0f) {
                     s_stall_timer_ms += dt_ms;
                     if (s_stall_timer_ms >= ROBOT_STALL_TIMEOUT_MS) {
-                        enter_recovery_backup(pose, sensors->tof_front_mm);
+                        enter_recovery_backup(pose, sensors->tof_front_mm, true);
                     }
                 } else {
                     s_stall_timer_ms = 0U;
@@ -510,11 +600,11 @@ void Mission_Step(const RobotSensorFrame_t *sensors, RobotDriveCmd_t *out_cmd)
             float backed_cm = sqrtf(dx * dx + dy * dy);
 
             if (backed_cm >= 6.0f || s_recovery_timer_ms >= 700U) {
-                int new_wps = plan_to_finish_gate(pose.x_cm, pose.y_cm, true);
+                int new_wps = plan_with_two_tier_inflation(pose.x_cm, pose.y_cm, true,
+                                                           s_plan_buf, MAX_WAYPOINTS);
                 if (new_wps >= 2) {
-                    s_total_wps   = new_wps;
+                    commit_planned_path(s_plan_buf, new_wps, true);
                     s_replan_done = true;
-                    PurePursuit_Reset();
                     s_state = s_prev_run_state;
                 } else {
                     s_state = FSM_EMERGENCY_STOP;
